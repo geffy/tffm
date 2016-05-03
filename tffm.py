@@ -5,10 +5,10 @@ import sklearn
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
-from sklearn.linear_model.base import BaseEstimator, LinearClassifierMixin
+from sklearn.base import BaseEstimator
 
 
-class TFFMClassifier(BaseEstimator, LinearClassifierMixin):
+class TFFMClassifier(BaseEstimator):
     def __init__(self, rank, order=2, fit_intercept=True, lr=0.1, batch_size=-1, reg=0, init_std=0.01, n_epochs=100, verbose=0, nfeats=None):
 
         # Save all the params as class attributes. It's required by the
@@ -137,8 +137,11 @@ class TFFMClassifier(BaseEstimator, LinearClassifierMixin):
                 self.train_x : bX.astype(np.float32), 
             }
             output.append(self.session.run(self.outputs, feed_dict=fd))
-        # TODO: reshape
-        return np.concatenate(output)
+        return np.concatenate(output).reshape(-1)
+
+    def predict(self, X):
+        raw_output = self.decision_function(X)
+        return (raw_output > 0).astype(int)
 
     def predict_proba(self, X):
         if self.graph is None:
@@ -149,5 +152,6 @@ class TFFMClassifier(BaseEstimator, LinearClassifierMixin):
                 self.train_x : bX.astype(np.float32), 
             }
             output.append(self.session.run(self.probs, feed_dict=fd))
-        # TODO: reshape
-        return np.concatenate(output)
+        probs_positive = np.concatenate(output)
+        probs_negative = 1 - probs_positive
+        return np.concatenate((probs_negative, probs_positive), axis=1)
