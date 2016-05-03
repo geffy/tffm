@@ -1,14 +1,15 @@
 """A tensorflow implementation of d-way FM (d>=2)
     Should support sklearn stuff like cross-validation.
 """
-from sklearn.linear_model.base import BaseEstimator, LinearClassifierMixin
 import sklearn
 import numpy as np
 import tensorflow as tf
+from tqdm import tqdm
+from sklearn.linear_model.base import BaseEstimator, LinearClassifierMixin
 
 
 class TFFMClassifier(BaseEstimator, LinearClassifierMixin):
-    def __init__(self, rank, order=2, fit_intercept=True, lr=0.1, batch_size=-1, reg=0, init_std=0.01, n_epochs=100, verbose=0):
+    def __init__(self, rank, order=2, fit_intercept=True, lr=0.1, batch_size=-1, reg=0, init_std=0.01, n_epochs=100, verbose=0, nfeats=None):
 
         # Save all the params as class attributes. It's required by the
         # BaseEstimator class.
@@ -95,7 +96,7 @@ class TFFMClassifier(BaseEstimator, LinearClassifierMixin):
 
             yield (retX, retY)
 
-    def fit(self, X_, y_, n_epochs=None):
+    def fit(self, X_, y_, n_epochs=None, progress_bar=False):
         self.nfeats = X_.shape[1]
         assert self.nfeats is not None
         if self.graph is None:
@@ -105,8 +106,9 @@ class TFFMClassifier(BaseEstimator, LinearClassifierMixin):
 
         if n_epochs is None:
             n_epochs = self.n_epochs
+
         # Training cycle
-        for epoch in range(n_epochs):
+        for epoch in tqdm(range(n_epochs), unit='epoch', disable=(not progress_bar)):
             if self.verbose>0:
                 print 'start epoch: {}'.format(epoch)
 
