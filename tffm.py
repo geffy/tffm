@@ -8,7 +8,7 @@ import tensorflow as tf
 
 
 class TFFMClassifier(BaseEstimator, LinearClassifierMixin):
-    def __init__(self, rank, interactions=2, fit_intercept=True, lr=0.1, batch_size=-1, reg=0, init_std=0.01, n_epochs=100, verbose=0):
+    def __init__(self, rank, order=2, fit_intercept=True, lr=0.1, batch_size=-1, reg=0, init_std=0.01, n_epochs=100, verbose=0):
 
         # Save all the params as class attributes. It's required by the
         # BaseEstimator class.
@@ -17,7 +17,7 @@ class TFFMClassifier(BaseEstimator, LinearClassifierMixin):
         self.batch_size = batch_size
         self.fit_intercept = fit_intercept
         self.reg = reg
-        self.interactions = interactions
+        self.order = order
         self.n_epochs = n_epochs
         self.verbose = verbose
         self.init_std = init_std
@@ -31,8 +31,8 @@ class TFFMClassifier(BaseEstimator, LinearClassifierMixin):
         with self.graph.as_default():
 
             with tf.name_scope('params') as scope: 
-                self.w = [None] * self.interactions
-                for i in range(1, self.interactions+1):
+                self.w = [None] * self.order
+                for i in range(1, self.order+1):
                     r = self.rank
                     if i == 1:
                         r = 1
@@ -51,7 +51,7 @@ class TFFMClassifier(BaseEstimator, LinearClassifierMixin):
 
             with tf.name_scope('mainBlock') as scope:
                 self.outputs = tf.matmul(self.train_x, self.w[0])
-                for i in range(2, self.interactions+1):
+                for i in range(2, self.order+1):
                     dot = tf.pow(tf.matmul(self.train_x, self.w[i-1]), i)
                     # Subtract diagonal elements.
                     dot -= tf.matmul(tf.pow(self.train_x, i), tf.pow(self.w[i-1], i))
@@ -64,7 +64,7 @@ class TFFMClassifier(BaseEstimator, LinearClassifierMixin):
                     100, name='truncated_log_loss') 
 
                 self.regularization = 0
-                for i in range(1, self.interactions+1):
+                for i in range(1, self.order+1):
                     self.regularization += tf.nn.l2_loss(self.w[i-1], name='regularization_penalty_'+str(i))
 
             self.target = tf.reduce_mean(self.loss) + self.reg*self.regularization
