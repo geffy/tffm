@@ -69,7 +69,8 @@ class TFFMClassifier(BaseEstimator):
                     self.regularization += tf.nn.l2_loss(self.w[i-1], name='regularization_penalty_'+str(i))
 
             self.target = tf.reduce_mean(self.loss) + self.reg*self.regularization
-            self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.target)
+            self.checked_target = tf.verify_tensor_all_finite(self.target, msg='NaN or Inf in target value', name='target_numeric_check')
+            self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.checked_target)
 
     def initialize_session(self):
         # TODO: get rid of interactive session.
