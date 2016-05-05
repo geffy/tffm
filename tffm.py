@@ -1,33 +1,33 @@
 """A tensorflow implementation of d-way FM (d>=2)
     Should support sklearn stuff like cross-validation.
 """
-import sklearn
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
+import sklearn
 from sklearn.base import BaseEstimator
 
 
 class TFFMClassifier(BaseEstimator):
-    def __init__(self, rank, order=2, fit_intercept=True, lr=0.1, batch_size=-1, reg=0, init_std=0.01, n_epochs=100, verbose=0, nfeats=None):
+    def __init__(self, rank, order=2, lr=0.1, n_epochs=100, batch_size=-1, 
+                 reg=0, init_std=0.01, fit_intercept=True, verbose=0):
 
-        # Save all the params as class attributes. It's required by the
-        # BaseEstimator class.
         self.rank = rank
+        self.order = order
         self.lr = lr
         self.batch_size = batch_size
+        self.n_epochs = n_epochs
         self.fit_intercept = fit_intercept
         self.reg = reg
-        self.order = order
-        self.n_epochs = n_epochs
-        self.verbose = verbose
         self.init_std = init_std
+        self.verbose = verbose
+        
         self.graph = None
         self.nfeats = None
+        
 
     def initialize_graph(self):
         assert self.nfeats is not  None
-
         self.graph = tf.Graph()
         with self.graph.as_default():
 
@@ -40,7 +40,6 @@ class TFFMClassifier(BaseEstimator):
                     self.w[i-1] = tf.Variable(tf.random_uniform([self.nfeats, r], -self.init_std, self.init_std),
                                               trainable=True,
                                               name='embedding_'+str(i))
-
                 self.b = tf.Variable(
                     self.init_std,
                     trainable = True,
@@ -71,12 +70,11 @@ class TFFMClassifier(BaseEstimator):
             self.target = tf.reduce_mean(self.loss) + self.reg*self.regularization
             self.checked_target = tf.verify_tensor_all_finite(self.target, msg='NaN or Inf in target value', name='target_numeric_check')
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.checked_target)
+            self.init = tf.initialize_all_variables()
 
-    def initialize_session(self):
-        # TODO: get rid of interactive session.
-        self.session = tf.InteractiveSession(graph=self.graph)
-        init = tf.initialize_all_variables()
-        self.session.run(init)
+    def initialize_session(self):   
+        self.session = tf.Session(graph=self.graph)
+        self.session.run(self.init)
         # TODO: add SummaryWriter
 
     def destroy(self):
