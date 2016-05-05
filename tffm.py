@@ -6,6 +6,7 @@ import tensorflow as tf
 from tqdm import tqdm
 import sklearn
 from sklearn.base import BaseEstimator
+import time
 
 
 class TFFMClassifier(BaseEstimator):
@@ -54,13 +55,12 @@ class TFFMClassifier(BaseEstimator):
                     self.raw_indices = tf.placeholder(tf.int64, shape=[None, 2], name='raw_indices')
                     self.raw_values = tf.placeholder(tf.float32, shape=[None], name='raw_data')
                     self.raw_shape = tf.placeholder(tf.int64, shape=[2], name='raw_shape')
-                    self.train_x = tf.sparse_reorder(
-                                        tf.SparseTensor(
+                    # tf.sparse_reorder is not needed -- scipy return COO in canonical order
+                    self.train_x = tf.SparseTensor(
                                             self.raw_indices,
                                             self.raw_values,
                                             self.raw_shape
-                                        ), name='assemble_sparse_input'
-                                    )
+                                        )
 
                 self.train_y = tf.placeholder(tf.float32, shape=[None], name='Y')
 
@@ -78,13 +78,12 @@ class TFFMClassifier(BaseEstimator):
                     else:
                         raw_dot = tf.sparse_tensor_dense_matmul(self.train_x, self.w[i-1])
                         dot = tf.pow(raw_dot, i)
-                        powered_x = tf.sparse_reorder(
-                                            tf.SparseTensor(
-                                                self.raw_indices,
-                                                tf.pow(self.raw_values, i),
-                                                self.raw_shape,
-                                            ), name='assemble_sparse_input'
-                                        )
+                        # tf.sparse_reorder is not needed -- scipy return COO in canonical order
+                        powered_x = tf.SparseTensor(
+                                        self.raw_indices,
+                                        tf.pow(self.raw_values, i),
+                                        self.raw_shape
+                                    )
                         dot -= tf.sparse_tensor_dense_matmul(powered_x, tf.pow(self.w[i-1], i))
 
                     self.outputs += tf.reshape(tf.reduce_sum(dot, [1]), [-1, 1])
@@ -121,11 +120,9 @@ class TFFMClassifier(BaseEstimator):
 
         for i in range(0, X_.shape[0], batch_size):
             retX = X_[i:i+batch_size]
-
             retY = None
             if y_ is not None:
                 retY = y_[i:i+batch_size]
-
             yield (retX, retY)
 
     def batch_to_feeddict(self, X, y):
@@ -145,7 +142,7 @@ class TFFMClassifier(BaseEstimator):
             fd[self.train_y] = y.astype(np.float32)
         return fd
 
-    def fit(self, X_, y_, n_epochs=None, progress_bar=False):
+    def fit(self, X_, y_, n_epochs=None, show_progress=False):
         self.nfeats = X_.shape[1]
         assert self.nfeats is not None
         if self.graph is None:
@@ -157,7 +154,7 @@ class TFFMClassifier(BaseEstimator):
             n_epochs = self.n_epochs
 
         # Training cycle
-        for epoch in tqdm(range(n_epochs), unit='epoch', disable=(not progress_bar)):
+        for epoch in tqdm(range(n_epochs), unit='epoch', disable=(not show_progress)):
             if self.verbose>0:
                 print 'start epoch: {}'.format(epoch)
 
@@ -173,6 +170,7 @@ class TFFMClassifier(BaseEstimator):
                     batch_target_value = self.session.run(self.target, feed_dict=fd)
                     w_sum = self.regularization.eval()
                     print ' -> batch: {}, target: {}, w_sum: {}'.format(i, batch_target_value, w_sum)
+
 
     def decision_function(self, X):
         if self.graph is None:
