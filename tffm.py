@@ -9,12 +9,13 @@ from sklearn.base import BaseEstimator
 
 
 class TFFMClassifier(BaseEstimator):
-    def __init__(self, rank, order=2, lr=0.1, n_epochs=100, batch_size=-1, 
-                 reg=0, init_std=0.01, fit_intercept=True, verbose=0):
+    def __init__(self, rank, order=2, 
+                optimizer=tf.train.AdamOptimizer(learning_rate=0.1), batch_size=-1, n_epochs=100,
+                reg=0, init_std=0.01, fit_intercept=True, verbose=0):
 
         self.rank = rank
         self.order = order
-        self.lr = lr
+        self.optimizer = optimizer
         self.batch_size = batch_size
         self.n_epochs = n_epochs
         self.fit_intercept = fit_intercept
@@ -69,7 +70,7 @@ class TFFMClassifier(BaseEstimator):
 
             self.target = tf.reduce_mean(self.loss) + self.reg*self.regularization
             self.checked_target = tf.verify_tensor_all_finite(self.target, msg='NaN or Inf in target value', name='target_numeric_check')
-            self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.checked_target)
+            self.optimizer = self.optimizer.minimize(self.checked_target)
             self.init = tf.initialize_all_variables()
 
     def initialize_session(self):   
