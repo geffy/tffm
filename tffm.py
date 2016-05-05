@@ -11,7 +11,7 @@ from sklearn.base import BaseEstimator
 class TFFMClassifier(BaseEstimator):
     def __init__(self, rank, order=2, 
                 optimizer=tf.train.AdamOptimizer(learning_rate=0.1), batch_size=-1, n_epochs=100,
-                reg=0, init_std=0.01, fit_intercept=True, verbose=0):
+                reg=0, init_std=0.01, fit_intercept=True, verbose=0, input_type='dense'):
 
         self.rank = rank
         self.order = order
@@ -22,6 +22,7 @@ class TFFMClassifier(BaseEstimator):
         self.reg = reg
         self.init_std = init_std
         self.verbose = verbose
+        self.input_type = input_type
         
         self.graph = None
         self.nfeats = None
@@ -47,15 +48,45 @@ class TFFMClassifier(BaseEstimator):
                     name='bias')
 
             with tf.name_scope('inputBlock') as scope:
-                self.train_x = tf.placeholder(tf.float32, shape=[None, self.nfeats], name='x')
+                if self.input_type=='dense':
+                    self.train_x = tf.placeholder(tf.float32, shape=[None, self.nfeats], name='x')
+                else:
+                    self.raw_indices = tf.placeholder(tf.int64, shape=[None, 2], name='raw_indices')
+                    self.raw_values = tf.placeholder(tf.float32, shape=[None], name='raw_data')
+                    self.raw_shape = tf.placeholder(tf.int64, shape=[2], name='raw_shape')
+                    self.train_x = tf.sparse_reorder(
+                                        tf.SparseTensor(
+                                            self.raw_indices,
+                                            self.raw_values,
+                                            self.raw_shape
+                                        ), name='assemble_sparse_input'
+                                    )
+
                 self.train_y = tf.placeholder(tf.float32, shape=[None], name='Y')
 
             with tf.name_scope('mainBlock') as scope:
-                self.outputs = tf.matmul(self.train_x, self.w[0])
+                if self.input_type=='dense':
+                    self.outputs = tf.matmul(self.train_x, self.w[0])
+                else:
+                    self.outputs = tf.sparse_tensor_dense_matmul(self.train_x, self.w[0])
+
                 for i in range(2, self.order+1):
-                    dot = tf.pow(tf.matmul(self.train_x, self.w[i-1]), i)
-                    # Subtract diagonal elements.
-                    dot -= tf.matmul(tf.pow(self.train_x, i), tf.pow(self.w[i-1], i))
+                    if self.input_type=='dense':
+                        raw_dot = tf.matmul(self.train_x, self.w[i-1])
+                        dot = tf.pow(raw_dot, i)
+                        dot -= tf.matmul(tf.pow(self.train_x, i), tf.pow(self.w[i-1], i))
+                    else:
+                        raw_dot = tf.sparse_tensor_dense_matmul(self.train_x, self.w[i-1])
+                        dot = tf.pow(raw_dot, i)
+                        powered_x = tf.sparse_reorder(
+                                            tf.SparseTensor(
+                                                self.raw_indices,
+                                                tf.pow(self.raw_values, i),
+                                                self.raw_shape,
+                                            ), name='assemble_sparse_input'
+                                        )
+                        dot -= tf.sparse_tensor_dense_matmul(powered_x, tf.pow(self.w[i-1], i))
+
                     self.outputs += tf.reshape(tf.reduce_sum(dot, [1]), [-1, 1])
                 self.outputs += self.b
 
@@ -90,11 +121,29 @@ class TFFMClassifier(BaseEstimator):
 
         for i in range(0, X_.shape[0], batch_size):
             retX = X_[i:i+batch_size]
+
             retY = None
             if y_ is not None:
                 retY = y_[i:i+batch_size]
 
             yield (retX, retY)
+
+    def batch_to_feeddict(self, X, y):
+        fd = {}
+        if self.input_type == 'dense':
+            fd[self.train_x] = X.astype(np.float32)
+        else:
+            X_sp = X.tocoo()
+            shape = X_sp.shape
+            fd[self.raw_indices] = np.hstack((
+                                        X_sp.row[:, np.newaxis],
+                                        X_sp.col[:, np.newaxis]
+                                    )).astype(np.int64)
+            fd[self.raw_values] = X_sp.data.astype(np.float32)
+            fd[self.raw_shape] = np.array(X_sp.shape).astype(np.int64)
+        if y is not None:
+            fd[self.train_y] = y.astype(np.float32)
+        return fd
 
     def fit(self, X_, y_, n_epochs=None, progress_bar=False):
         self.nfeats = X_.shape[1]
@@ -117,10 +166,7 @@ class TFFMClassifier(BaseEstimator):
 
             # iterate over batches
             for i, (bX, bY) in enumerate(self.batcher(X_[perm], used_y[perm])):
-                fd = {
-                    self.train_x : bX.astype(np.float32), 
-                    self.train_y : bY.astype(np.float32),
-                }
+                fd = self.batch_to_feeddict(bX, bY)
                 self.session.run(self.optimizer, feed_dict=fd)
 
                 if self.verbose > 1:
@@ -133,9 +179,7 @@ class TFFMClassifier(BaseEstimator):
             raise sklearn.exceptions.NotFittedError("Call fit before prediction")
         output = []
         for (bX, bY) in self.batcher(X):
-            fd = {
-                self.train_x : bX.astype(np.float32), 
-            }
+            fd = self.batch_to_feeddict(bX, bY)
             output.append(self.session.run(self.outputs, feed_dict=fd))
         return np.concatenate(output).reshape(-1)
 
@@ -148,9 +192,7 @@ class TFFMClassifier(BaseEstimator):
             raise sklearn.exceptions.NotFittedError("Call fit before prediction")
         output = []
         for (bX, bY) in self.batcher(X):
-            fd = {
-                self.train_x : bX.astype(np.float32), 
-            }
+            fd = self.batch_to_feeddict(bX, bY)
             output.append(self.session.run(self.probs, feed_dict=fd))
         probs_positive = np.concatenate(output)
         probs_negative = 1 - probs_positive
