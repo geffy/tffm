@@ -116,6 +116,7 @@ class TFFMClassifier(BaseEstimator):
             self.trainer = self.optimizer.minimize(self.checked_target)
             self.init = tf.initialize_all_variables()
             self.summary_op = tf.merge_all_summaries()
+            self.saver = tf.train.Saver()
 
     def initialize_session(self):
         if self.graph is None:
@@ -219,3 +220,13 @@ class TFFMClassifier(BaseEstimator):
         probs_positive = np.concatenate(output)
         probs_negative = 1 - probs_positive
         return np.concatenate((probs_negative, probs_positive), axis=1)
+
+    def save_state(self, path):
+        self.saver.save(self.session, path)
+
+    def load_state(self, path):
+        if self.graph is None:
+            self.initialize_graph()
+            self.initialize_session()
+        self.saver.restore(self.session, path)
+
