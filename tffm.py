@@ -103,7 +103,7 @@ class TFFMClassifier(BaseEstimator):
                 for i in range(1, self.order+1):
                     norm = tf.nn.l2_loss(self.w[i-1], name='regularization_penalty_'+str(i))
                     tf.scalar_summary('norm_W_{}'.format(i), norm)
-                    self.regularization += tf.nn.l2_loss(self.w[i-1], name='regularization_penalty_'+str(i))
+                    self.regularization += norm
 
             self.reduced_loss = tf.reduce_mean(self.loss) 
             tf.scalar_summary('loss', self.reduced_loss)
