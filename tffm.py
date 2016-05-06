@@ -7,12 +7,13 @@ from tqdm import tqdm
 import sklearn
 from sklearn.base import BaseEstimator
 import time
+import os
 
 
 class TFFMClassifier(BaseEstimator):
     def __init__(self, rank, order=2, 
                 optimizer=tf.train.AdamOptimizer(learning_rate=0.1), batch_size=-1, n_epochs=100,
-                reg=0, init_std=0.01, fit_intercept=True, verbose=0, input_type='dense'):
+                reg=0, init_std=0.01, fit_intercept=True, verbose=0, input_type='dense', log_dir=None):
 
         self.rank = rank
         self.order = order
@@ -24,10 +25,12 @@ class TFFMClassifier(BaseEstimator):
         self.init_std = init_std
         self.verbose = verbose
         self.input_type = input_type
+        self.need_logs = log_dir is not None
+        self.log_dir = log_dir
         
         self.graph = None
         self.nfeats = None
-        
+        self.steps = 0
 
     def initialize_graph(self):
         assert self.nfeats is not  None
@@ -43,10 +46,12 @@ class TFFMClassifier(BaseEstimator):
                     self.w[i-1] = tf.Variable(tf.random_uniform([self.nfeats, r], -self.init_std, self.init_std),
                                               trainable=True,
                                               name='embedding_'+str(i))
+
                 self.b = tf.Variable(
                     self.init_std,
                     trainable = True,
                     name='bias')
+                tf.scalar_summary('bias', self.b)
 
             with tf.name_scope('inputBlock') as scope:
                 if self.input_type=='dense':
@@ -96,17 +101,31 @@ class TFFMClassifier(BaseEstimator):
 
                 self.regularization = 0
                 for i in range(1, self.order+1):
+                    norm = tf.nn.l2_loss(self.w[i-1], name='regularization_penalty_'+str(i))
+                    tf.scalar_summary('norm_W_{}'.format(i), norm)
                     self.regularization += tf.nn.l2_loss(self.w[i-1], name='regularization_penalty_'+str(i))
 
-            self.target = tf.reduce_mean(self.loss) + self.reg*self.regularization
-            self.checked_target = tf.verify_tensor_all_finite(self.target, msg='NaN or Inf in target value', name='target_numeric_check')
-            self.optimizer = self.optimizer.minimize(self.checked_target)
-            self.init = tf.initialize_all_variables()
+            self.reduced_loss = tf.reduce_mean(self.loss) 
+            tf.scalar_summary('loss', self.reduced_loss)
+            tf.scalar_summary('regularization_penalty', self.regularization)
 
-    def initialize_session(self):   
+            self.target = self.reduced_loss + self.reg*self.regularization
+            self.checked_target = tf.verify_tensor_all_finite(self.target, msg='NaN or Inf in target value', name='target_numeric_check')
+            tf.scalar_summary('target', self.checked_target)
+
+            self.trainer = self.optimizer.minimize(self.checked_target)
+            self.init = tf.initialize_all_variables()
+            self.summary_op = tf.merge_all_summaries()
+
+    def initialize_session(self):
+        if self.graph is None:
+            raise 'Graph not found. Try call initialize_graph() before initialize_session()'
+        if self.need_logs:
+            self.summary_writer = tf.train.SummaryWriter(self.log_dir, self.graph)
+            if self.verbose>0:
+                print('Initialize logs, use: \ntensorboard --logdir={}'.format(os.path.abspath(self.log_dir)))
         self.session = tf.Session(graph=self.graph)
         self.session.run(self.init)
-        # TODO: add SummaryWriter
 
     def destroy(self):
         self.session.close()
@@ -155,7 +174,7 @@ class TFFMClassifier(BaseEstimator):
 
         # Training cycle
         for epoch in tqdm(range(n_epochs), unit='epoch', disable=(not show_progress)):
-            if self.verbose>0:
+            if self.verbose>1:
                 print 'start epoch: {}'.format(epoch)
 
             # generate permutation
@@ -164,12 +183,17 @@ class TFFMClassifier(BaseEstimator):
             # iterate over batches
             for i, (bX, bY) in enumerate(self.batcher(X_[perm], used_y[perm])):
                 fd = self.batch_to_feeddict(bX, bY)
-                self.session.run(self.optimizer, feed_dict=fd)
+                _, batch_target_value, summary_str = self.session.run([self.trainer, self.target, self.summary_op], feed_dict=fd)
 
                 if self.verbose > 1:
-                    batch_target_value = self.session.run(self.target, feed_dict=fd)
                     w_sum = self.regularization.eval()
                     print ' -> batch: {}, target: {}, w_sum: {}'.format(i, batch_target_value, w_sum)
+
+                # Write stats
+                if self.need_logs:
+                    self.summary_writer.add_summary(summary_str, self.steps)
+                    self.summary_writer.flush()
+                self.steps += 1
 
 
     def decision_function(self, X):

@@ -25,4 +25,4 @@ model = TFFMClassifier(
 model.fit(X_tr, y_tr, show_progress=True)
 ```
 
-See `example.ipynb` for details
+See `example.ipynb` for more details
