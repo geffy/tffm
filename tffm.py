@@ -8,6 +8,7 @@ import sklearn
 from sklearn.base import BaseEstimator
 import time
 import os
+import shutil
 
 
 class TFFMClassifier(BaseEstimator):
@@ -70,47 +71,53 @@ class TFFMClassifier(BaseEstimator):
                 self.train_y = tf.placeholder(tf.float32, shape=[None], name='Y')
 
             with tf.name_scope('mainBlock') as scope:
-                if self.input_type=='dense':
-                    self.outputs = tf.matmul(self.train_x, self.w[0])
-                else:
-                    self.outputs = tf.sparse_tensor_dense_matmul(self.train_x, self.w[0])
+                self.outputs = self.b
+
+                with tf.name_scope('linear_part') as scope:
+                    if self.input_type=='dense':
+                        contribution = tf.matmul(self.train_x, self.w[0])
+                    else:
+                        contribution = tf.sparse_tensor_dense_matmul(self.train_x, self.w[0])
+                self.outputs += contribution
 
                 for i in range(2, self.order+1):
-                    if self.input_type=='dense':
-                        raw_dot = tf.matmul(self.train_x, self.w[i-1])
-                        dot = tf.pow(raw_dot, i)
-                        dot -= tf.matmul(tf.pow(self.train_x, i), tf.pow(self.w[i-1], i))
-                    else:
-                        raw_dot = tf.sparse_tensor_dense_matmul(self.train_x, self.w[i-1])
-                        dot = tf.pow(raw_dot, i)
-                        # tf.sparse_reorder is not needed -- scipy return COO in canonical order
-                        powered_x = tf.SparseTensor(
-                                        self.raw_indices,
-                                        tf.pow(self.raw_values, i),
-                                        self.raw_shape
-                                    )
-                        dot -= tf.sparse_tensor_dense_matmul(powered_x, tf.pow(self.w[i-1], i))
+                    with tf.name_scope('order_{}'.format(i)) as scope:
+                        if self.input_type=='dense':
+                            raw_dot = tf.matmul(self.train_x, self.w[i-1])
+                            dot = tf.pow(raw_dot, i)
+                            dot -= tf.matmul(tf.pow(self.train_x, i), tf.pow(self.w[i-1], i))
+                        else:
+                            raw_dot = tf.sparse_tensor_dense_matmul(self.train_x, self.w[i-1])
+                            dot = tf.pow(raw_dot, i)
+                            # tf.sparse_reorder is not needed -- scipy return COO in canonical order
+                            powered_x = tf.SparseTensor(
+                                            self.raw_indices,
+                                            tf.pow(self.raw_values, i),
+                                            self.raw_shape
+                                        )
+                            dot -= tf.sparse_tensor_dense_matmul(powered_x, tf.pow(self.w[i-1], i))
+                        contribution = tf.reshape(tf.reduce_sum(dot, [1]), [-1, 1])
 
-                    self.outputs += tf.reshape(tf.reduce_sum(dot, [1]), [-1, 1])
-                self.outputs += self.b
+                    self.outputs += contribution
 
-                self.probs = tf.sigmoid(self.outputs, name='probs')
-                self.loss = tf.minimum(
-                    tf.log(tf.add(1.0, tf.exp(-self.train_y * tf.transpose(self.outputs)))), 
-                    100, name='truncated_log_loss') 
+                with tf.name_scope('loss') as scope:
+                    self.probs = tf.sigmoid(self.outputs, name='probs')
+                    self.loss = tf.minimum(
+                        tf.log(tf.add(1.0, tf.exp(-self.train_y * tf.transpose(self.outputs)))),
+                        100, name='truncated_log_loss')
+                    self.reduced_loss = tf.reduce_mean(self.loss)
+                    tf.scalar_summary('loss', self.reduced_loss)
 
-                self.regularization = 0
-                for i in range(1, self.order+1):
-                    norm = tf.nn.l2_loss(self.w[i-1], name='regularization_penalty_'+str(i))
-                    tf.scalar_summary('norm_W_{}'.format(i), norm)
-                    self.regularization += norm
-
-            self.reduced_loss = tf.reduce_mean(self.loss) 
-            tf.scalar_summary('loss', self.reduced_loss)
-            tf.scalar_summary('regularization_penalty', self.regularization)
+                with tf.name_scope('regularization') as scope:
+                    self.regularization = 0
+                    for i in range(1, self.order+1):
+                        norm = tf.nn.l2_loss(self.w[i-1], name='regularization_penalty_'+str(i))
+                        tf.scalar_summary('norm_W_{}'.format(i), norm)
+                        self.regularization += norm
+                    tf.scalar_summary('regularization_penalty', self.regularization)
 
             self.target = self.reduced_loss + self.reg*self.regularization
-            self.checked_target = tf.verify_tensor_all_finite(self.target, msg='NaN or Inf in target value', name='target_numeric_check')
+            self.checked_target = tf.verify_tensor_all_finite(self.target, msg='NaN or Inf in target value', name='target')
             tf.scalar_summary('target', self.checked_target)
 
             self.trainer = self.optimizer.minimize(self.checked_target)
@@ -122,6 +129,9 @@ class TFFMClassifier(BaseEstimator):
         if self.graph is None:
             raise 'Graph not found. Try call initialize_graph() before initialize_session()'
         if self.need_logs:
+            if os.path.exists(self.log_dir):
+                print('log dir not empty -- delete it')
+                shutil.rmtree(self.log_dir)
             self.summary_writer = tf.train.SummaryWriter(self.log_dir, self.graph)
             if self.verbose>0:
                 print('Initialize logs, use: \ntensorboard --logdir={}'.format(os.path.abspath(self.log_dir)))
