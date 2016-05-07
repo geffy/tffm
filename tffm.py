@@ -1,6 +1,10 @@
-"""A tensorflow implementation of d-way FM (d>=2)
-    Should support sklearn stuff like cross-validation.
 """
+Implementation of an arbitrary order Factorization Machines
+"""
+
+# Author: Mikhail Trofimov <mikhail.trofimov@phystech.edu>
+# License: MIT
+
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
@@ -12,9 +16,89 @@ import shutil
 
 
 class TFFMClassifier(BaseEstimator):
+    """Factorization Machine (aka FM).
+
+    This class implements L2-regularized arbitrary order FM model with logistic loss and gradient-based optimization.
+    It supports arbitrary order of interactions and has linear complexity in in number of features (as described in Lemma 3.1 in the referenced paper).
+    It can handle both dense and sparse input. Only numpy arrays and CSR matrices are allowed; any other input format should be explicitly converted.
+    Only binary classification with 0/1 labels supported.
+
+    Parameters
+    ----------
+    rank : int
+        Number of factors in low-rank appoximation. This value is shared across different orders of interaction.
+
+    order : int, default: 2
+        Order of corresponding polynomial model. All interaction from bias and linear to order will be included.
+
+    optimizer : tf.train.Optimizer, default: tf.train.AdamOptimizer(learning_rate=0.1)
+        Optimization method used for training
+
+    batch_size : int, default: -1
+        Number of samples in mini-batches. Shuffled every epoch. Use -1 for full gradient (whole training set in each batch).
+
+    n_epoch : int, default: 100
+        Default number of epoches. It can be overrived by explicitly provided value in fit() method.
+
+    reg : float, default: 0
+        Strength of L2 regularization
+
+    init_std : float, default: 0.01
+        Amplitude of random initialization
+
+    fit_intercept : bool, default: True
+        Whether the intercept should be estimated or not. 
+
+    input_type : str, 'dense' or 'sparse', default: 'dense'
+        Type of input data. Only numpy.array allowed for 'dense' and scipy.sparse.csr_matrix for 'sparse'.
+        This affects construction of computational graph and cannot be changed during training/testing.
+
+    log_dir : str or None, default: None
+        Path for storing model stats during training. Used only if is not None. WARNING: If such directory already exists, it will be removed!
+        You can use TensorBoard to visualize the stats: `tensorboard --logdir={log_dir}`
+
+    verbose : int, default: 0
+        Level of verbosity. Set 1 for tensorboard info only and 2 for additional stats every epoch.
+   
+
+    Attributes
+    ----------
+    graph : tf.Graph or None
+        Initialize computational graph or None
+
+    session : tf.Session or None
+        Current execution session or None. 
+        Should be explicitly terminated via calling destroy() method.
+
+    trainer : tf.Op
+        TensorFlow operation node to perform learning on single batch 
+
+    steps : int
+        Counter of passed lerning epoches, used as step number for writing stats.
+
+    n_features : int
+        Number of features used in this dataset. Inferred during the first call of fit() method.
+
+    b : tf.Variable, shape: [1]
+        Bias term.  
+
+    w : array of tf.Variable, shape: [order]
+        Array of underlying representations. First element (corresponding to linear part) will have shape [n_features, 1], all the others -- [n_features, rank].
+
+    Notes
+    -----
+    You should explicitly call destroy() method to release resources
+    Parameter rank is shared across all orders of interactions (except bias and linear parts) 
+    tf.sparse_reorder doesn't requied since COO format is lexigraphical ordered.
+
+    References
+    ----------
+    Steffen Rendle, Factorization Machines
+        http://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf
+    """
     def __init__(self, rank, order=2, 
                 optimizer=tf.train.AdamOptimizer(learning_rate=0.1), batch_size=-1, n_epochs=100,
-                reg=0, init_std=0.01, fit_intercept=True, verbose=0, input_type='dense', log_dir=None):
+                reg=0, init_std=0.01, fit_intercept=True, input_type='dense', log_dir=None, verbose=0,):
 
         self.rank = rank
         self.order = order
@@ -24,17 +108,18 @@ class TFFMClassifier(BaseEstimator):
         self.fit_intercept = fit_intercept
         self.reg = reg
         self.init_std = init_std
-        self.verbose = verbose
         self.input_type = input_type
         self.need_logs = log_dir is not None
         self.log_dir = log_dir
+        self.verbose = verbose
         
         self.graph = None
-        self.nfeats = None
+        self.n_features = None
         self.steps = 0
 
     def initialize_graph(self):
-        assert self.nfeats is not  None
+        """Build computational graph according to params"""
+        assert self.n_features is not  None
         self.graph = tf.Graph()
         with self.graph.as_default():
 
@@ -44,7 +129,7 @@ class TFFMClassifier(BaseEstimator):
                     r = self.rank
                     if i == 1:
                         r = 1
-                    self.w[i-1] = tf.Variable(tf.random_uniform([self.nfeats, r], -self.init_std, self.init_std),
+                    self.w[i-1] = tf.Variable(tf.random_uniform([self.n_features, r], -self.init_std, self.init_std),
                                               trainable=True,
                                               name='embedding_'+str(i))
 
@@ -56,7 +141,7 @@ class TFFMClassifier(BaseEstimator):
 
             with tf.name_scope('inputBlock') as scope:
                 if self.input_type=='dense':
-                    self.train_x = tf.placeholder(tf.float32, shape=[None, self.nfeats], name='x')
+                    self.train_x = tf.placeholder(tf.float32, shape=[None, self.n_features], name='x')
                 else:
                     self.raw_indices = tf.placeholder(tf.int64, shape=[None, 2], name='raw_indices')
                     self.raw_values = tf.placeholder(tf.float32, shape=[None], name='raw_data')
@@ -126,6 +211,9 @@ class TFFMClassifier(BaseEstimator):
             self.saver = tf.train.Saver()
 
     def initialize_session(self):
+        """Start computational session on builded graph and 
+        initialize summary logger (if needed) 
+        """
         if self.graph is None:
             raise 'Graph not found. Try call initialize_graph() before initialize_session()'
         if self.need_logs:
@@ -139,10 +227,28 @@ class TFFMClassifier(BaseEstimator):
         self.session.run(self.init)
 
     def destroy(self):
+        """Terminates session and destroyes graph"""
         self.session.close()
         self.graph = None
 
     def batcher(self, X_, y_=None):
+        """Split data to mini-batches
+
+        Parameters
+        ----------
+        X_ : {numpy.array, scipy.sparse.csr_matrix}, shape (n_samples, n_features)
+            Training vector, where n_samples in the number of samples and
+            n_features is the number of features.
+
+        y_ : np.array or None, shape (n_samples,)
+            Target vector relative to X.
+
+        Yields
+        -------
+        retX : {numpy.array, scipy.sparse.csr_matrix}, shape (batch_size, n_features)
+            Same type as input
+        retY : np.array or None, shape (batch_size,)
+        """
         if self.batch_size == -1:
             batch_size = X_.shape[0]
         else:
@@ -156,10 +262,28 @@ class TFFMClassifier(BaseEstimator):
             yield (retX, retY)
 
     def batch_to_feeddict(self, X, y):
+        """Prepare feed dict for session.run() from mini-batch.
+        Convert sparse format into tuple (indices, values, shape) for ts.SparseTensor
+
+        Parameters
+        ----------
+        X : {numpy.array, scipy.sparse.csr_matrix}, shape (batch_size, n_features)
+            Training vector, where batch_size in the number of samples and
+            n_features is the number of features.
+
+        y : np.array, shape (batch_size,)
+            Target vector relative to X.
+
+        Returns
+        -------
+        fd : dict
+            Dict with formatted placeholders
+        """
         fd = {}
         if self.input_type == 'dense':
             fd[self.train_x] = X.astype(np.float32)
         else:
+            # sparse case
             X_sp = X.tocoo()
             shape = X_sp.shape
             fd[self.raw_indices] = np.hstack((
@@ -173,8 +297,25 @@ class TFFMClassifier(BaseEstimator):
         return fd
 
     def fit(self, X_, y_, n_epochs=None, show_progress=False):
-        self.nfeats = X_.shape[1]
-        assert self.nfeats is not None
+        """Fit the model according to the given training data.
+
+        Parameters
+        ----------
+        X_ : {numpy.array, scipy.sparse.csr_matrix}, shape (n_samples, n_features)
+            Training vector, where n_samples in the number of samples and
+            n_features is the number of features.
+
+        y_ : np.array, shape (n_samples,)
+            Target vector relative to X.
+
+        n_epochs : int or None, default: None
+            Number of learning epochs. If is None -- self.n_epochs will be used
+
+        show_progress : bool, default: False
+            Specifies if a progress bar should be printed.
+        """
+        self.n_features = X_.shape[1]
+        assert self.n_features is not None
         if self.graph is None:
             self.initialize_graph()
             self.initialize_session()
@@ -208,19 +349,59 @@ class TFFMClassifier(BaseEstimator):
 
 
     def decision_function(self, X):
+        """Decision function of the FM model.
+
+        Parameters
+        ----------
+        X : {numpy.array, scipy.sparse.csr_matrix}, shape = (n_samples, n_features)
+            Samples.
+
+        Returns
+        -------
+        distances : array, shape = (n_samples,)
+            Returns predicted values.
+        """
         if self.graph is None:
             raise sklearn.exceptions.NotFittedError("Call fit before prediction")
         output = []
         for (bX, bY) in self.batcher(X):
             fd = self.batch_to_feeddict(bX, bY)
             output.append(self.session.run(self.outputs, feed_dict=fd))
-        return np.concatenate(output).reshape(-1)
+        distances = np.concatenate(output).reshape(-1)
+        return distances
 
     def predict(self, X):
+        """Predict using the FM model
+
+        Parameters
+        ----------
+        X : {numpy.array, scipy.sparse.csr_matrix}, shape = (n_samples, n_features)
+            Samples.
+
+        Returns
+        -------
+        predictions : array, shape = (n_samples,)
+            Returns predicted values.
+        """
         raw_output = self.decision_function(X)
-        return (raw_output > 0).astype(int)
+        predictions = (raw_output > 0).astype(int)
+        return predictions
 
     def predict_proba(self, X):
+        """Probability estimates.
+
+        The returned estimates for all 2 classes are ordered by the
+        label of classes.
+
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+
+        Returns
+        -------
+        probs : array-like, shape = [n_samples, 2]
+            Returns the probability of the sample for each class in the model.
+        """
         if self.graph is None:
             raise sklearn.exceptions.NotFittedError("Call fit before prediction")
         output = []
@@ -229,12 +410,27 @@ class TFFMClassifier(BaseEstimator):
             output.append(self.session.run(self.probs, feed_dict=fd))
         probs_positive = np.concatenate(output)
         probs_negative = 1 - probs_positive
-        return np.concatenate((probs_negative, probs_positive), axis=1)
+        probs = np.concatenate((probs_negative, probs_positive), axis=1)
+        return probs
 
     def save_state(self, path):
+        """Save current session to file.
+
+        Parameters
+        ----------
+        path : str
+            Destination file
+        """
         self.saver.save(self.session, path)
 
     def load_state(self, path):
+        """Restore session state from file.
+
+        Parameters
+        ----------
+        path : str
+            Restoring file
+        """
         if self.graph is None:
             self.initialize_graph()
             self.initialize_session()
