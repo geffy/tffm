@@ -6,6 +6,8 @@
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
+import utils
+import math
 import sklearn
 from sklearn.base import BaseEstimator
 import os
@@ -212,10 +214,21 @@ class TFFMClassifier(BaseEstimator):
                         if self.input_type == 'dense':
                             raw_dot = tf.matmul(self.train_x, self.w[i - 1])
                             dot = tf.pow(raw_dot, i)
-                            dot -= tf.matmul(
-                                tf.pow(self.train_x, i),
-                                tf.pow(self.w[i - 1], i))
+                            for in_pows, out_pows, coef in utils.powers_and_coefs(i):
+                                # TODO: a dirty way to init a tensor of unknown size.
+                                x_pow = tf.pow(self.train_x, in_pows[0])
+                                w_pow = np.power(self.w[i-1], in_pows[0])
+                                curr_dot = tf.matmul(x_pow, w_pow)
+                                product_of_pows = tf.pow(curr_dot, out_pows[0])
+                                for pow_idx in range(1, len(in_pows)):
+                                    # TODO: precompute powers.
+                                    x_pow = tf.pow(self.train_x, in_pows[pow_idx])
+                                    w_pow = np.power(self.w[i-1], in_pows[pow_idx])
+                                    curr_dot = tf.matmul(x_pow, w_pow)
+                                    product_of_pows *= tf.pow(curr_dot, out_pows[pow_idx])
+                                dot -= coef * product_of_pows
                         else:
+                            # TODO: Apply fixes from the dense code to the sparse code.
                             raw_dot = tf.sparse_tensor_dense_matmul(
                                 self.train_x,
                                 self.w[i - 1])
@@ -231,6 +244,7 @@ class TFFMClassifier(BaseEstimator):
                         contribution = tf.reshape(
                             tf.reduce_sum(dot, [1]),
                             [-1, 1])
+                        contribution /= float(math.factorial(i))
 
                     self.outputs += contribution
 
@@ -286,7 +300,7 @@ class TFFMClassifier(BaseEstimator):
                 print('log dir not empty -- delete it')
                 shutil.rmtree(self.log_dir)
             self.summary_writer = tf.train.SummaryWriter(
-                self.log_dir, 
+                self.log_dir,
                 self.graph)
             if self.verbose > 0:
                 print('Initialize logs, use: \ntensorboard --logdir={}'.format(
