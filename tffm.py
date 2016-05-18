@@ -214,13 +214,10 @@ class TFFMClassifier(BaseEstimator):
                         if self.input_type == 'dense':
                             raw_dot = tf.matmul(self.train_x, self.w[i - 1])
                             dot = tf.pow(raw_dot, i)
+                            initialization_shape = tf.pack([tf.shape(self.train_x)[0], self.rank])
                             for in_pows, out_pows, coef in utils.powers_and_coefs(i):
-                                # TODO: a dirty way to init a tensor of unknown size.
-                                x_pow = tf.pow(self.train_x, in_pows[0])
-                                w_pow = np.power(self.w[i-1], in_pows[0])
-                                curr_dot = tf.matmul(x_pow, w_pow)
-                                product_of_pows = tf.pow(curr_dot, out_pows[0])
-                                for pow_idx in range(1, len(in_pows)):
+                                product_of_pows = tf.ones(initialization_shape)
+                                for pow_idx in range(len(in_pows)):
                                     # TODO: precompute powers.
                                     x_pow = tf.pow(self.train_x, in_pows[pow_idx])
                                     w_pow = np.power(self.w[i-1], in_pows[pow_idx])
