@@ -1,6 +1,8 @@
 import unittest
 import numpy as np
 from tffm import TFFMClassifier
+from scipy import sparse as sp
+import tensorflow as tf
 
 
 
@@ -14,9 +16,21 @@ class TestFM(unittest.TestCase):
         self.linear_weights = np.random.rand(10)
         self.y = np.sign(self.X.dot(self.linear_weights) + 0.1 * np.random.rand(20))
 
-    def test_decision_function_order_4(self):
-        model = TFFMClassifier(order=4, rank=10, n_epochs=1)
-        model.fit(self.X, self.y)
+    def decision_function_order_4(self, input_type):
+        model = TFFMClassifier(
+            order=4,
+            rank=10,
+            optimizer=tf.train.AdamOptimizer(learning_rate=0.1),
+            n_epochs=1,
+            input_type=input_type
+        )
+
+        if input_type == 'dense':
+            X = self.X
+        else:
+            X = sp.csr_matrix(self.X)
+
+        model.fit(X, self.y)
         b = model.b.eval(session=model.session)
         w = [0] * 4
         for i in range(4):
@@ -24,8 +38,16 @@ class TestFM(unittest.TestCase):
 
         desired = self.bruteforce_inference(self.X, w, b)
 
-        actual = model.decision_function(self.X)
-        np.testing.assert_almost_equal(actual, desired)
+        actual = model.decision_function(X)
+        model.destroy()
+        np.testing.assert_almost_equal(actual, desired, decimal=6)
+
+    def test_dense(self):
+        self.decision_function_order_4('dense')
+
+    def test_sparse(self):
+        self.decision_function_order_4('sparse')
+
 
     def bruteforce_inference_one_interaction(self, X, w, order):
         n_obj, n_feat = X.shape
