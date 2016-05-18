@@ -25,7 +25,7 @@ class TestFM(unittest.TestCase):
         desired = self.bruteforce_inference(self.X, w, b)
 
         actual = model.decision_function(self.X)
-        np.testing.assert_almost_equal(actual, desired)
+        np.testing.assert_almost_equal(actual, desired, decimal=6)
 
     def bruteforce_inference_one_interaction(self, X, w, order):
         n_obj, n_feat = X.shape
