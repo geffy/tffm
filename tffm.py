@@ -209,6 +209,19 @@ class TFFMClassifier(BaseEstimator):
                             self.w[0])
                 self.outputs += contribution
 
+                def pow_matmul(order, pow):
+                    if pow not in pow_matmul.x_pow_cache:
+                        pow_matmul.x_pow_cache[pow] = tf.pow(self.train_x, pow)
+                    if order not in pow_matmul.matmul_cache:
+                        pow_matmul.matmul_cache[order] = {}
+                    if pow not in pow_matmul.matmul_cache[order]:
+                        w_pow = np.power(self.w[order-1], pow)
+                        pow_matmul.matmul_cache[order][pow] = tf.matmul(pow_matmul.x_pow_cache[pow], w_pow)
+                    return pow_matmul.matmul_cache[order][pow]
+                pow_matmul.x_pow_cache = {}
+                pow_matmul.matmul_cache = {}
+
+
                 for i in range(2, self.order + 1):
                     with tf.name_scope('order_{}'.format(i)) as scope:
                         if self.input_type == 'dense':
@@ -218,11 +231,7 @@ class TFFMClassifier(BaseEstimator):
                             for in_pows, out_pows, coef in utils.powers_and_coefs(i):
                                 product_of_pows = tf.ones(initialization_shape)
                                 for pow_idx in range(len(in_pows)):
-                                    # TODO: precompute powers.
-                                    x_pow = tf.pow(self.train_x, in_pows[pow_idx])
-                                    w_pow = np.power(self.w[i-1], in_pows[pow_idx])
-                                    curr_dot = tf.matmul(x_pow, w_pow)
-                                    product_of_pows *= tf.pow(curr_dot, out_pows[pow_idx])
+                                    product_of_pows *= tf.pow(pow_matmul(i, in_pows[pow_idx]), out_pows[pow_idx])
                                 dot -= coef * product_of_pows
                         else:
                             # TODO: Apply fixes from the dense code to the sparse code.
