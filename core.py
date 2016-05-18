@@ -7,7 +7,7 @@ def matmul_wrapper(A, B, optype):
     optype: str, {'dense', 'sparse'}
 
     Return
-    tf.Op
+    tf.Tensor
     """
     if optype == 'dense':
         return tf.matmul(A, B)
@@ -17,24 +17,23 @@ def matmul_wrapper(A, B, optype):
         raise NameError('Unknown input type in matmul')
 
 
-def train_x_pow_wrapper(obj, p, optype):
+def pow_wrapper(X, p, optype):
     """
-    obj: TFFMClassifier
+    X: tf.SparseTensor
     p: int
     optype: str, {'dense', 'sparse'}
 
     Return
-    tf.Op
+    tf.Tensor
     """
     # TODO: assert existence of placeholders
     if optype == 'dense':
-        return tf.pow(obj.train_x, p)
+        return tf.pow(X, p)
     elif optype == 'sparse':
         return tf.SparseTensor(
-            obj.raw_indices,
-            tf.pow(obj.raw_values, p),
-            obj.raw_shape
+            X.indices,
+            tf.pow(X.values, p),
+            X.shape
         )
-        print(type(obj.train_x))
     else:
         raise NameError('Unknown input type in matmul')
