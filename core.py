@@ -2,11 +2,16 @@ import tensorflow as tf
 
 
 def matmul_wrapper(A, B, optype):
-    """
-    A, B: tf.Tensor
-    optype: str, {'dense', 'sparse'}
+    """Wrapper for handling sparse and dense versions of matmul operation.
 
-    Return
+    Parameters
+    ----------
+    A : tf.Tensor
+    B : tf.Tensor
+    optype : str, {'dense', 'sparse'}
+
+    Returns
+    -------
     tf.Tensor
     """
     if optype == 'dense':
@@ -14,16 +19,20 @@ def matmul_wrapper(A, B, optype):
     elif optype == 'sparse':
         return tf.sparse_tensor_dense_matmul(A, B)
     else:
-        raise NameError('Unknown input type in matmul')
+        raise NameError('Unknown input type in matmul_wrapper')
 
 
 def pow_wrapper(X, p, optype):
-    """
-    X: tf.SparseTensor
-    p: int
-    optype: str, {'dense', 'sparse'}
+    """Wrapper for handling sparse and dense versions of power operation.
 
-    Return
+    Parameters
+    ----------
+    X : tf.Tensor
+    p : int
+    optype : str, {'dense', 'sparse'}
+
+    Returns
+    -------
     tf.Tensor
     """
     # TODO: assert existence of placeholders
@@ -36,4 +45,4 @@ def pow_wrapper(X, p, optype):
             X.shape
         )
     else:
-        raise NameError('Unknown input type in matmul')
+        raise NameError('Unknown input type in pow_wrapper')

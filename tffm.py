@@ -1,7 +1,5 @@
 """Implementation of an arbitrary order Factorization Machines."""
 
-# Author: Mikhail Trofimov <mikhail.trofimov@phystech.edu>
-# License: MIT
 
 import numpy as np
 import tensorflow as tf
@@ -212,25 +210,40 @@ class TFFMClassifier(BaseEstimator):
 
                 def pow_matmul(order, pow):
                     if pow not in pow_matmul.x_pow_cache:
-                        pow_matmul.x_pow_cache[pow] = core.pow_wrapper(self.train_x, pow, self.input_type)
+                        pow_matmul.x_pow_cache[pow] = core.pow_wrapper(
+                            self.train_x,
+                            pow,
+                            self.input_typ
+                        )
                     if order not in pow_matmul.matmul_cache:
                         pow_matmul.matmul_cache[order] = {}
                     if pow not in pow_matmul.matmul_cache[order]:
-                        w_pow = tf.pow(self.w[order-1], pow)
-                        pow_matmul.matmul_cache[order][pow] = core.matmul_wrapper(pow_matmul.x_pow_cache[pow], w_pow, self.input_type)
+                        w_pow = tf.pow(self.w[order - 1], pow)
+                        pow_matmul.matmul_cache[order][pow] = core.matmul_wrapper(
+                            pow_matmul.x_pow_cache[pow],
+                            w_pow,
+                            self.input_type
+                        )
                     return pow_matmul.matmul_cache[order][pow]
                 pow_matmul.x_pow_cache = {}
                 pow_matmul.matmul_cache = {}
 
                 for i in range(2, self.order + 1):
                     with tf.name_scope('order_{}'.format(i)) as scope:
-                        raw_dot = core.matmul_wrapper(self.train_x, self.w[i - 1], self.input_type)
+                        raw_dot = core.matmul_wrapper(
+                            self.train_x,
+                            self.w[i - 1],
+                            self.input_type
+                        )
                         dot = tf.pow(raw_dot, i)
                         initialization_shape = tf.shape(dot)
                         for in_pows, out_pows, coef in utils.powers_and_coefs(i):
                             product_of_pows = tf.ones(initialization_shape)
                             for pow_idx in range(len(in_pows)):
-                                product_of_pows *= tf.pow(pow_matmul(i, in_pows[pow_idx]), out_pows[pow_idx])
+                                product_of_pows *= tf.pow(
+                                    pow_matmul(i, in_pows[pow_idx]),
+                                    out_pows[pow_idx]
+                                )
                             dot -= coef * product_of_pows
                         contribution = tf.reshape(
                             tf.reduce_sum(dot, [1]),
