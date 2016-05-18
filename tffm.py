@@ -7,6 +7,7 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 import utils
+import core
 import math
 import sklearn
 from sklearn.base import BaseEstimator
@@ -211,42 +212,41 @@ class TFFMClassifier(BaseEstimator):
 
                 def pow_matmul(order, pow):
                     if pow not in pow_matmul.x_pow_cache:
-                        pow_matmul.x_pow_cache[pow] = tf.pow(self.train_x, pow)
+                        pow_matmul.x_pow_cache[pow] = core.train_x_pow_wrapper(self, pow, self.input_type)
                     if order not in pow_matmul.matmul_cache:
                         pow_matmul.matmul_cache[order] = {}
                     if pow not in pow_matmul.matmul_cache[order]:
-                        w_pow = np.power(self.w[order-1], pow)
-                        pow_matmul.matmul_cache[order][pow] = tf.matmul(pow_matmul.x_pow_cache[pow], w_pow)
+                        w_pow = tf.pow(self.w[order-1], pow)
+                        pow_matmul.matmul_cache[order][pow] = core.matmul_wrapper(pow_matmul.x_pow_cache[pow], w_pow, self.input_type)
                     return pow_matmul.matmul_cache[order][pow]
                 pow_matmul.x_pow_cache = {}
                 pow_matmul.matmul_cache = {}
 
-
                 for i in range(2, self.order + 1):
                     with tf.name_scope('order_{}'.format(i)) as scope:
-                        if self.input_type == 'dense':
-                            raw_dot = tf.matmul(self.train_x, self.w[i - 1])
-                            dot = tf.pow(raw_dot, i)
-                            initialization_shape = tf.pack([tf.shape(self.train_x)[0], self.rank])
-                            for in_pows, out_pows, coef in utils.powers_and_coefs(i):
-                                product_of_pows = tf.ones(initialization_shape)
-                                for pow_idx in range(len(in_pows)):
-                                    product_of_pows *= tf.pow(pow_matmul(i, in_pows[pow_idx]), out_pows[pow_idx])
-                                dot -= coef * product_of_pows
-                        else:
-                            # TODO: Apply fixes from the dense code to the sparse code.
-                            raw_dot = tf.sparse_tensor_dense_matmul(
-                                self.train_x,
-                                self.w[i - 1])
-                            dot = tf.pow(raw_dot, i)
-                            # tf.sparse_reorder is not needed
-                            powered_x = tf.SparseTensor(
-                                self.raw_indices,
-                                tf.pow(self.raw_values, i),
-                                self.raw_shape)
-                            dot -= tf.sparse_tensor_dense_matmul(
-                                powered_x,
-                                tf.pow(self.w[i - 1], i))
+                        # if self.input_type == 'dense':
+                        raw_dot = core.matmul_wrapper(self.train_x, self.w[i - 1], self.input_type)
+                        dot = tf.pow(raw_dot, i)
+                        initialization_shape = tf.shape(dot)
+                        for in_pows, out_pows, coef in utils.powers_and_coefs(i):
+                            product_of_pows = tf.ones(initialization_shape)
+                            for pow_idx in range(len(in_pows)):
+                                product_of_pows *= tf.pow(pow_matmul(i, in_pows[pow_idx]), out_pows[pow_idx])
+                            dot -= coef * product_of_pows
+                        # else:
+                        #     # TODO: Apply fixes from the dense code to the sparse code.
+                        #     raw_dot = tf.sparse_tensor_dense_matmul(
+                        #         self.train_x,
+                        #         self.w[i - 1])
+                        #     dot = tf.pow(raw_dot, i)
+                        #     # tf.sparse_reorder is not needed
+                        #     powered_x = tf.SparseTensor(
+                        #         self.raw_indices,
+                        #         tf.pow(self.raw_values, i),
+                        #         self.raw_shape)
+                        #     dot -= tf.sparse_tensor_dense_matmul(
+                        #         powered_x,
+                        #         tf.pow(self.w[i - 1], i))
                         contribution = tf.reshape(
                             tf.reduce_sum(dot, [1]),
                             [-1, 1])
