@@ -213,7 +213,7 @@ class TFFMClassifier(BaseEstimator):
                         pow_matmul.x_pow_cache[pow] = core.pow_wrapper(
                             self.train_x,
                             pow,
-                            self.input_typ
+                            self.input_type
                         )
                     if order not in pow_matmul.matmul_cache:
                         pow_matmul.matmul_cache[order] = {}
