@@ -31,10 +31,8 @@ class TestFM(unittest.TestCase):
             X = sp.csr_matrix(self.X)
 
         model.fit(X, self.y)
-        b = model.b.eval(session=model.session)
-        w = [0] * 4
-        for i in range(4):
-            w[i] = model.w[i].eval(session=model.session)
+        b = model.intercept
+        w = model.weights
 
         desired = self.bruteforce_inference(self.X, w, b)
 

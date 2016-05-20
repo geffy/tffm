@@ -4,9 +4,9 @@
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
-import utils
 import core
-import math
+
+from core import TFFMCore
 import sklearn
 from sklearn.base import BaseEstimator
 import os
@@ -118,204 +118,50 @@ class TFFMClassifier(BaseEstimator):
         n_epochs=100,
         reg=0,
         init_std=0.01,
-        fit_intercept=True,
         input_type='dense',
         log_dir=None, verbose=0
     ):
 
-        self.rank = rank
-        self.order = order
-        self.optimizer = optimizer
+        self.core = TFFMCore(
+            order=order,
+            rank=rank,
+            n_features=None,
+            input_type=input_type,
+            optimizer=optimizer,
+            reg=reg,
+            init_std=init_std)
+
         self.batch_size = batch_size
         self.n_epochs = n_epochs
-        self.fit_intercept = fit_intercept
-        self.reg = reg
-        self.init_std = init_std
-        self.input_type = input_type
         self.need_logs = log_dir is not None
         self.log_dir = log_dir
         self.verbose = verbose
-
-        self.graph = None
-        self.n_features = None
         self.steps = 0
-
-    def initialize_graph(self):
-        """Build computational graph according to params."""
-        assert self.n_features is not None
-        self.graph = tf.Graph()
-        with self.graph.as_default():
-
-            with tf.name_scope('params') as scope:
-                self.w = [None] * self.order
-                for i in range(1, self.order + 1):
-                    r = self.rank
-                    if i == 1:
-                        r = 1
-                    self.w[i - 1] = tf.Variable(
-                        tf.random_uniform(
-                            [self.n_features, r],
-                            -self.init_std,
-                            self.init_std),
-                        trainable=True,
-                        name='embedding_' + str(i))
-
-                self.b = tf.Variable(
-                    self.init_std,
-                    trainable=True,
-                    name='bias')
-                tf.scalar_summary('bias', self.b)
-
-            with tf.name_scope('inputBlock') as scope:
-                if self.input_type == 'dense':
-                    self.train_x = tf.placeholder(
-                        tf.float32,
-                        shape=[None, self.n_features],
-                        name='x')
-                else:
-                    self.raw_indices = tf.placeholder(
-                        tf.int64,
-                        shape=[None, 2],
-                        name='raw_indices')
-                    self.raw_values = tf.placeholder(
-                        tf.float32,
-                        shape=[None],
-                        name='raw_data')
-                    self.raw_shape = tf.placeholder(
-                        tf.int64, shape=[2],
-                        name='raw_shape')
-                    # tf.sparse_reorder is not needed since
-                    # scipy return COO in canonical order
-                    self.train_x = tf.SparseTensor(
-                        self.raw_indices,
-                        self.raw_values,
-                        self.raw_shape)
-
-                self.train_y = tf.placeholder(
-                    tf.float32,
-                    shape=[None],
-                    name='Y')
-
-            with tf.name_scope('mainBlock') as scope:
-                self.outputs = self.b
-
-                with tf.name_scope('linear_part') as scope:
-                    if self.input_type == 'dense':
-                        contribution = tf.matmul(self.train_x, self.w[0])
-                    else:
-                        contribution = tf.sparse_tensor_dense_matmul(
-                            self.train_x,
-                            self.w[0])
-                self.outputs += contribution
-
-                def pow_matmul(order, pow):
-                    if pow not in pow_matmul.x_pow_cache:
-                        pow_matmul.x_pow_cache[pow] = core.pow_wrapper(
-                            self.train_x,
-                            pow,
-                            self.input_type
-                        )
-                    if order not in pow_matmul.matmul_cache:
-                        pow_matmul.matmul_cache[order] = {}
-                    if pow not in pow_matmul.matmul_cache[order]:
-                        w_pow = tf.pow(self.w[order - 1], pow)
-                        pow_matmul.matmul_cache[order][pow] = core.matmul_wrapper(
-                            pow_matmul.x_pow_cache[pow],
-                            w_pow,
-                            self.input_type
-                        )
-                    return pow_matmul.matmul_cache[order][pow]
-                pow_matmul.x_pow_cache = {}
-                pow_matmul.matmul_cache = {}
-
-                for i in range(2, self.order + 1):
-                    with tf.name_scope('order_{}'.format(i)) as scope:
-                        raw_dot = core.matmul_wrapper(
-                            self.train_x,
-                            self.w[i - 1],
-                            self.input_type
-                        )
-                        dot = tf.pow(raw_dot, i)
-                        initialization_shape = tf.shape(dot)
-                        for in_pows, out_pows, coef in utils.powers_and_coefs(i):
-                            product_of_pows = tf.ones(initialization_shape)
-                            for pow_idx in range(len(in_pows)):
-                                product_of_pows *= tf.pow(
-                                    pow_matmul(i, in_pows[pow_idx]),
-                                    out_pows[pow_idx]
-                                )
-                            dot -= coef * product_of_pows
-                        contribution = tf.reshape(
-                            tf.reduce_sum(dot, [1]),
-                            [-1, 1])
-                        contribution /= float(math.factorial(i))
-
-                    self.outputs += contribution
-
-                with tf.name_scope('loss') as scope:
-                    self.probs = tf.sigmoid(self.outputs, name='probs')
-                    self.loss = tf.minimum(
-                        tf.log(
-                            tf.add(
-                                1.0,
-                                tf.exp(
-                                    -self.train_y * tf.transpose(
-                                        self.outputs
-                                    )
-                                )
-                            )
-                        ),
-                        100, name='truncated_log_loss')
-                    self.reduced_loss = tf.reduce_mean(self.loss)
-                    tf.scalar_summary('loss', self.reduced_loss)
-
-                with tf.name_scope('regularization') as scope:
-                    self.regularization = 0
-                    for i in range(1, self.order + 1):
-                        norm = tf.nn.l2_loss(
-                            self.w[i - 1],
-                            name='regularization_penalty_' + str(i))
-                        tf.scalar_summary('norm_W_{}'.format(i), norm)
-                        self.regularization += norm
-                    tf.scalar_summary(
-                        'regularization_penalty',
-                        self.regularization)
-
-            self.target = self.reduced_loss + self.reg * self.regularization
-            self.checked_target = tf.verify_tensor_all_finite(
-                self.target,
-                msg='NaN or Inf in target value', name='target')
-            tf.scalar_summary('target', self.checked_target)
-
-            self.trainer = self.optimizer.minimize(self.checked_target)
-            self.init = tf.initialize_all_variables()
-            self.summary_op = tf.merge_all_summaries()
-            self.saver = tf.train.Saver()
 
     def initialize_session(self):
         """Start computational session on builded graph.
 
         Initialize summary logger (if needed).
         """
-        if self.graph is None:
-            raise 'Graph not found. Try call initialize_graph() before initialize_session()'
+        if self.core.graph is None:
+            raise 'Graph not found. Try call .core.build_graph() before .initialize_session()'
         if self.need_logs:
             if os.path.exists(self.log_dir):
                 print('log dir not empty -- delete it')
                 shutil.rmtree(self.log_dir)
             self.summary_writer = tf.train.SummaryWriter(
                 self.log_dir,
-                self.graph)
+                self.core.graph)
             if self.verbose > 0:
                 print('Initialize logs, use: \ntensorboard --logdir={}'.format(
                     os.path.abspath(self.log_dir)))
-        self.session = tf.Session(graph=self.graph)
-        self.session.run(self.init)
+        self.session = tf.Session(graph=self.core.graph)
+        self.session.run(self.core.init_all_vars)
 
     def destroy(self):
         """Terminate session and destroyes graph."""
         self.session.close()
-        self.graph = None
+        self.core.graph = None
 
     def batcher(self, X_, y_=None):
         """Split data to mini-batches.
@@ -367,18 +213,18 @@ class TFFMClassifier(BaseEstimator):
             Dict with formatted placeholders
         """
         fd = {}
-        if self.input_type == 'dense':
-            fd[self.train_x] = X.astype(np.float32)
+        if self.core.input_type == 'dense':
+            fd[self.core.train_x] = X.astype(np.float32)
         else:
             # sparse case
             X_sp = X.tocoo()
-            fd[self.raw_indices] = np.hstack((
+            fd[self.core.raw_indices] = np.hstack((
                 X_sp.row[:, np.newaxis],
                 X_sp.col[:, np.newaxis])).astype(np.int64)
-            fd[self.raw_values] = X_sp.data.astype(np.float32)
-            fd[self.raw_shape] = np.array(X_sp.shape).astype(np.int64)
+            fd[self.core.raw_values] = X_sp.data.astype(np.float32)
+            fd[self.core.raw_shape] = np.array(X_sp.shape).astype(np.int64)
         if y is not None:
-            fd[self.train_y] = y.astype(np.float32)
+            fd[self.core.train_y] = y.astype(np.float32)
         return fd
 
     def fit(self, X_, y_, n_epochs=None, show_progress=False):
@@ -399,10 +245,10 @@ class TFFMClassifier(BaseEstimator):
         show_progress : bool, default: False
             Specifies if a progress bar should be printed.
         """
-        self.n_features = X_.shape[1]
-        assert self.n_features is not None
-        if self.graph is None:
-            self.initialize_graph()
+        self.core.set_num_features(X_.shape[1])
+        assert self.core.n_features is not None
+        if self.core.graph is None:
+            self.core.build_graph()
             self.initialize_session()
         # suppose input {0, 1}, but use instead {-1, 1} labels
         used_y = y_ * 2 - 1
@@ -424,15 +270,13 @@ class TFFMClassifier(BaseEstimator):
             for i, (bX, bY) in enumerate(self.batcher(X_[perm], used_y[perm])):
                 fd = self.batch_to_feeddict(bX, bY)
                 _, batch_target_value, summary_str = self.session.run(
-                    [self.trainer, self.target, self.summary_op],
+                    [self.core.trainer, self.core.target, self.core.summary_op],
                     feed_dict=fd)
 
                 if self.verbose > 1:
-                    w_sum = self.regularization.eval()
-                    print ' -> batch: {}, target: {}, w_sum: {}'.format(
+                    print ' -> batch: {}, target: {},'.format(
                         i,
-                        batch_target_value,
-                        w_sum)
+                        batch_target_value)
 
                 # Write stats
                 if self.need_logs:
@@ -453,12 +297,12 @@ class TFFMClassifier(BaseEstimator):
         distances : array, shape = (n_samples,)
             Returns predicted values.
         """
-        if self.graph is None:
+        if self.core.graph is None:
             raise sklearn.exceptions.NotFittedError("Call fit before prediction")
         output = []
         for (bX, bY) in self.batcher(X):
             fd = self.batch_to_feeddict(bX, bY)
-            output.append(self.session.run(self.outputs, feed_dict=fd))
+            output.append(self.session.run(self.core.outputs, feed_dict=fd))
         distances = np.concatenate(output).reshape(-1)
         return distances
 
@@ -494,16 +338,24 @@ class TFFMClassifier(BaseEstimator):
         probs : array-like, shape = [n_samples, 2]
             Returns the probability of the sample for each class in the model.
         """
-        if self.graph is None:
+        if self.core.graph is None:
             raise sklearn.exceptions.NotFittedError("Call fit before prediction")
         output = []
         for (bX, bY) in self.batcher(X):
             fd = self.batch_to_feeddict(bX, bY)
-            output.append(self.session.run(self.probs, feed_dict=fd))
+            output.append(self.session.run(self.core.probs, feed_dict=fd))
         probs_positive = np.concatenate(output)
         probs_negative = 1 - probs_positive
         probs = np.concatenate((probs_negative, probs_positive), axis=1)
         return probs
+
+    @property
+    def intercept(self):
+        return self.core.b.eval(session=self.session)
+
+    @property
+    def weights(self):
+        return [x.eval(session=self.session) for x in self.core.w]
 
     def save_state(self, path):
         """Save current session to file.
@@ -513,7 +365,7 @@ class TFFMClassifier(BaseEstimator):
         path : str
             Destination file
         """
-        self.saver.save(self.session, path)
+        self.core.saver.save(self.session, path)
 
     def load_state(self, path):
         """Restore session state from file.
@@ -523,7 +375,8 @@ class TFFMClassifier(BaseEstimator):
         path : str
             Restoring file
         """
-        if self.graph is None:
-            self.initialize_graph()
+        if self.core.graph is None:
+            self.core.build_graph()
             self.initialize_session()
-        self.saver.restore(self.session, path)
+        self.core.saver.restore(self.session, path)
+    
