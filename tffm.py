@@ -18,10 +18,16 @@ class TFFMClassifier(BaseEstimator):
 
     This class implements L2-regularized arbitrary order FM model with logistic
     loss and gradient-based optimization.
-    It supports arbitrary order of interactions and has linear complexity in in
-     number of features (as described in Lemma 3.1 in the referenced paper).
-    It can handle both dense and sparse input. Only numpy.array and CSR matrix
-    are allowed; any other input format should be explicitly converted.
+
+    It supports arbitrary order of interactions and has linear complexity in the
+    number of features (a generalization of the approach described in Lemma 3.1
+    in the referenced paper, details will be added soon).
+
+    It can handle both dense and sparse input. Only numpy.array and CSR matrix are
+    allowed as inputs; any other input format should be explicitly converted.
+
+    Support logging/visualization with TensorBoard.
+
     Only binary classification with 0/1 labels supported.
 
     Parameters
@@ -51,9 +57,6 @@ class TFFMClassifier(BaseEstimator):
     init_std : float, default: 0.01
         Amplitude of random initialization
 
-    fit_intercept : bool, default: True
-        Whether the intercept should be estimated or not.
-
     input_type : str, 'dense' or 'sparse', default: 'dense'
         Type of input data. Only numpy.array allowed for 'dense' and
         scipy.sparse.csr_matrix for 'sparse'. This affects construction of
@@ -71,15 +74,13 @@ class TFFMClassifier(BaseEstimator):
 
     Attributes
     ----------
-    graph : tf.Graph or None
-        Initialize computational graph or None
+    core : TFFMCore or None
+        Computational graph with internal utils.
+        Will be initialized during first call .fit()
 
     session : tf.Session or None
         Current execution session or None.
         Should be explicitly terminated via calling destroy() method.
-
-    trainer : tf.Op
-        TensorFlow operation node to perform learning on single batch
 
     steps : int
         Counter of passed lerning epochs, used as step number for writing stats
@@ -88,20 +89,20 @@ class TFFMClassifier(BaseEstimator):
         Number of features used in this dataset.
         Inferred during the first call of fit() method.
 
-    b : tf.Variable, shape: [1]
-        Bias term.
+    intercept : float, shape: [1]
+        Intercept (bias) term.
 
-    w : array of tf.Variable, shape: [order]
+    weights : array of np.array, shape: [order]
         Array of underlying representations.
         First element will have shape [n_features, 1],
         all the others -- [n_features, rank].
 
     Notes
     -----
-    You should explicitly call destroy() method to release resources
-    Parameter rank is shared across all orders of interactions
-    (except bias and linear parts).
-    tf.sparse_reorder doesn't requied since COO format is lexigraphical ordered
+    You should explicitly call destroy() method to release resources.
+    Parameter rank is shared across all orders of interactions (except bias and
+    linear parts).
+    tf.sparse_reorder doesn't requied since COO format is lexigraphical ordered.
 
     References
     ----------
@@ -121,7 +122,6 @@ class TFFMClassifier(BaseEstimator):
         input_type='dense',
         log_dir=None, verbose=0
     ):
-
         self.core = TFFMCore(
             order=order,
             rank=rank,
@@ -351,10 +351,12 @@ class TFFMClassifier(BaseEstimator):
 
     @property
     def intercept(self):
+        """Export bias term from tf.Variable to float."""
         return self.core.b.eval(session=self.session)
 
     @property
     def weights(self):
+        """Export underlying weights from tf.Variables to np.arrays."""
         return [x.eval(session=self.session) for x in self.core.w]
 
     def save_state(self, path):
@@ -379,4 +381,3 @@ class TFFMClassifier(BaseEstimator):
             self.core.build_graph()
             self.initialize_session()
         self.core.saver.restore(self.session, path)
-    

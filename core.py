@@ -4,6 +4,77 @@ import math
 
 
 class TFFMCore():
+    """
+    This class underlying routine about creating computational graph.
+
+    Its required n_features to be set at graph building time.
+
+
+    Parameters
+    ----------
+
+    order : int, default: 2
+        Order of corresponding polynomial model.
+        All interaction from bias and linear to order will be included.
+
+    rank : int
+        Number of factors in low-rank appoximation.
+        This value is shared across different orders of interaction.
+
+    input_type : str, 'dense' or 'sparse', default: 'dense'
+        Type of input data. Only numpy.array allowed for 'dense' and
+        scipy.sparse.csr_matrix for 'sparse'. This affects construction of
+        computational graph and cannot be changed during training/testing.
+
+    optimizer : tf.train.Optimizer, default: AdamOptimizer(learning_rate=0.1)
+        Optimization method used for training
+
+    reg : float, default: 0
+        Strength of L2 regularization
+
+    init_std : float, default: 0.01
+        Amplitude of random initialization
+
+
+    Attributes
+    ----------
+    graph : tf.Graph or None
+        Initialized computational graph or None
+
+    trainer : tf.Op
+        TensorFlow operation node to perform learning on single batch
+
+    n_features : int
+        Number of features used in this dataset.
+        Inferred during the first call of fit() method.
+
+    saver : tf.Op
+        tf.train.Saver instance, connected to graph
+
+    summary_op : tf.Op
+        tf.merge_all_summaries instance for export logging
+
+    b : tf.Variable, shape: [1]
+        Bias term.
+
+    w : array of tf.Variable, shape: [order]
+        Array of underlying representations.
+        First element will have shape [n_features, 1],
+        all the others -- [n_features, rank].
+
+    Notes
+    -----
+    Parameter rank is shared across all orders of interactions (except bias and
+    linear parts).
+    tf.sparse_reorder doesn't requied since COO format is lexigraphical ordered.
+    This implementation uses a generalized approach from referenced paper along
+    with caching.
+
+    References
+    ----------
+    Steffen Rendle, Factorization Machines
+        http://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf
+    """
     def __init__(self, order, rank, n_features, input_type, optimizer, reg, init_std):
         self.order = order
         self.rank = rank
