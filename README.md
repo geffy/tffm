@@ -2,7 +2,7 @@ This is a TensorFlow implementation of an arbitrary order (>=2) Factorization Ma
 
 It supports:
 * dense and sparse inputs
-* defferent optimization methods
+* different optimization methods
 * logging via TensorBoard
 
 
