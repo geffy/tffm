@@ -45,12 +45,10 @@ def get_shorter_decompositions(basic_decomposition):
             variations[sorted_pow].append(tuple(curr_pows))
             decompositions.append(sorted_pow)
     if len(decompositions) > 1:
-        i = 0
-        counts = np.zeros(len(variations))
-        for dec, var in enumerate(variations):
-            counts[i] = len(np.unique(var))
-            i += 1
         decompositions = np.unique(decompositions)
+        counts = np.zeros(decompositions.shape[0])
+        for i, dec in enumerate(decompositions):
+            counts[i] = len(np.unique(variations[dec]))
     else:
         counts = np.ones(1)
     return decompositions, counts
