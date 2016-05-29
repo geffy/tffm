@@ -1,8 +1,8 @@
 """Supporting functions for arbitrary order Factorization Machines."""
 
 
-import operator
 import itertools
+from itertools import combinations_with_replacement, takewhile, count
 import math
 from collections import defaultdict
 import numpy as np
@@ -15,7 +15,7 @@ def sub_decompositions(basic_decomposition):
 
     Parameters
     ----------
-    basic_decomposition : list
+    basic_decomposition : list or np.array
         The array from which to build subsequent ones.
 
     Returns
@@ -36,7 +36,7 @@ def sub_decompositions(basic_decomposition):
     decompositions = []
     variations = defaultdict(lambda: [])
     for curr_len in range(1, len(basic_decomposition)):
-        for sum_rule in itertools.combinations_with_replacement(range(curr_len), order):
+        for sum_rule in combinations_with_replacement(range(curr_len), order):
             i = 0
             sum_rule = np.array(sum_rule)
             curr_pows = np.array([np.sum(sum_rule == i) for i in range(curr_len)])
@@ -55,25 +55,39 @@ def sub_decompositions(basic_decomposition):
         counts = np.ones(1)
     return decompositions, counts
 
-def start_topo_sort(graph, visited, index, node, curr_index):
-    index[node] = curr_index
-    visited[node] = True
-    curr_index += 1
-    for child, _ in graph[node]:
-        if not visited[node]:
-            curr_index = start_topo_sort(graph, visited, index, child, curr_index)
-            visited[node] = True
-    return curr_index
+def sort_topologically(children_by_node, node_list):
+    """Topological sort of a graph.
 
-def topo_sort(graph, node_list):
-    num_nodes = len(graph.keys())
-    visited = defaultdict(lambda: False)
-    index = defaultdict(lambda: -1)
-    curr_index = 0
+    Parameters
+    ----------
+    children_by_node : dict
+        Children for any node.
+    node_list : list
+        All nodes (some nodes may not have children and thus a separate
+        parameter is needed).
+
+    Returns
+    -------
+    list, nodes in the topological order
+    """
+    levels_by_node = {}
+    nodes_by_level = defaultdict(set)
+
+    def walk_depth_first(node):
+        if node in levels_by_node:
+            return levels_by_node[node]
+        children = children_by_node[node]
+        level = 0 if not children else (1 + max(walk_depth_first(lname) for lname, _ in children))
+        levels_by_node[node] = level
+        nodes_by_level[level].add(node)
+        return level
+
     for node in node_list:
-        if not visited[node]:
-            curr_index = start_topo_sort(graph, visited, index, node, curr_index)
-    return index
+        walk_depth_first(node)
+
+    nodes_by_level = list(takewhile(lambda x: x != [],
+                                    (list(nodes_by_level[i]) for i in count())))
+    return list(itertools.chain.from_iterable(nodes_by_level))
 
 def local_coefficient(decomposition):
     order = np.sum(decomposition)
@@ -93,8 +107,7 @@ def powers_and_coefs(order):
             graph[parents[i]].append((dec, weights[i]))
             graph_reversed[dec].append((parents[i], weights[i]))
 
-    topo_order = sorted(topo_sort(graph, decompositions).items(), key=operator.itemgetter(1))
-    topo_order = [node for node, idx in topo_order]
+    topo_order = sort_topologically(graph, decompositions)
 
     final_coefs = defaultdict(lambda: 0)
     for node in topo_order:
