@@ -7,7 +7,7 @@ import math
 from collections import defaultdict
 import numpy as np
 
-def sub_decompositions(basic_decomposition):
+def get_shorter_decompositions(basic_decomposition):
     """Returns all arrays simpler than basic_decomposition.
 
     Returns all arrays that can be constructed from basic_decomposition
@@ -28,7 +28,7 @@ def sub_decompositions(basic_decomposition):
 
     Example
     -------
-    decompositions, counts = sub_decompositions([1, 2, 3])
+    decompositions, counts = get_shorter_decompositions([1, 2, 3])
         decompositions == [(1, 5), (2, 4), (3, 3), (6,)]
         counts == [ 2.,  1.,  1.,  2.]
     """
@@ -89,7 +89,8 @@ def sort_topologically(children_by_node, node_list):
                                     (list(nodes_by_level[i]) for i in count())))
     return list(itertools.chain.from_iterable(nodes_by_level))
 
-def local_coefficient(decomposition):
+def initial_coefficient(decomposition):
+    """Compute initial coefficient of the decomposition."""
     order = np.sum(decomposition)
     coef = math.factorial(order)
     coef /= np.prod([math.factorial(x) for x in decomposition])
@@ -98,11 +99,14 @@ def local_coefficient(decomposition):
     return coef
 
 def powers_and_coefs(order):
-    decompositions, _ = sub_decompositions(np.ones(order))
+    """For a `order`-way FM returns the powers and their coefficients needed to
+    compute model equation efficiently
+    """
+    decompositions, _ = get_shorter_decompositions(np.ones(order))
     graph = defaultdict(lambda: list())
     graph_reversed = defaultdict(lambda: list())
     for dec in decompositions:
-        parents, weights = sub_decompositions(dec)
+        parents, weights = get_shorter_decompositions(dec)
         for i in range(len(parents)):
             graph[parents[i]].append((dec, weights[i]))
             graph_reversed[dec].append((parents[i], weights[i]))
@@ -111,13 +115,12 @@ def powers_and_coefs(order):
 
     final_coefs = defaultdict(lambda: 0)
     for node in topo_order:
-        local_coef = local_coefficient(node)
-        final_coefs[node] += local_coef
+        final_coefs[node] += initial_coefficient(node)
         for p, w in graph_reversed[node]:
             final_coefs[p] -= w * final_coefs[node]
-    powers_and_coefs = []
+    powers_and_coefs_list = []
     for dec, c in final_coefs.iteritems():
         in_pows, out_pows = np.unique(dec, return_counts=True)
-        powers_and_coefs.append((in_pows, out_pows, c))
+        powers_and_coefs_list.append((in_pows, out_pows, c))
 
-    return powers_and_coefs
+    return powers_and_coefs_list
