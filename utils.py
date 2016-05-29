@@ -1,10 +1,37 @@
-import numpy as np
+"""Supporting functions for arbitrary order Factorization Machines."""
+
+
 import operator
 import itertools
 import math
 from collections import defaultdict
+import numpy as np
 
 def sub_decompositions(basic_decomposition):
+    """Returns all arrays simpler than basic_decomposition.
+
+    Returns all arrays that can be constructed from basic_decomposition
+    via joining (summing) its elements.
+
+    Parameters
+    ----------
+    basic_decomposition : list
+        The array from which to build subsequent ones.
+
+    Returns
+    -------
+    decompositions : list of tuples
+        All possible arrays that can be constructed from basic_decomposition.
+    counts : np.array
+        counts[i] equals to the number of ways to build decompositions[i] from
+        basic_decomposition.
+
+    Example
+    -------
+    decompositions, counts = sub_decompositions([1, 2, 3])
+        decompositions == [(1, 5), (2, 4), (3, 3), (6,)]
+        counts == [ 2.,  1.,  1.,  2.]
+    """
     order = int(np.sum(basic_decomposition))
     decompositions = []
     variations = defaultdict(lambda: [])
