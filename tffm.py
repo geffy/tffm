@@ -186,8 +186,10 @@ class TFFMClassifier(BaseEstimator):
         else:
             batch_size = self.batch_size
 
-        for i in range(0, X_.shape[0], batch_size):
-            ret_x = X_[i:i + batch_size]
+        n_samples = X_.shape[0]
+        for i in range(0, n_samples, batch_size):
+            upper_bound = min(i + batch_size, n_samples)
+            ret_x = X_[i:upper_bound]
             ret_y = None
             if y_ is not None:
                 ret_y = y_[i:i + batch_size]
