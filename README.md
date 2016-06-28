@@ -11,7 +11,7 @@ The inference time is linear with respect to the number of features.
 # Dependencies
 * [scikit-learn](http://scikit-learn.org/stable/)
 * [numpy](http://www.numpy.org/)
-* [tensorflow 0.8](https://www.tensorflow.org/)
+* [tensorflow 0.9](https://www.tensorflow.org/)
 * [tqdm](https://github.com/tqdm/tqdm)
 
 # Usage
