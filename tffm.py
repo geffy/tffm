@@ -146,9 +146,6 @@ class TFFMClassifier(BaseEstimator):
         if self.core.graph is None:
             raise 'Graph not found. Try call .core.build_graph() before .initialize_session()'
         if self.need_logs:
-            if os.path.exists(self.log_dir):
-                print('log dir not empty -- delete it')
-                shutil.rmtree(self.log_dir)
             self.summary_writer = tf.train.SummaryWriter(
                 self.log_dir,
                 self.core.graph)
