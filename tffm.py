@@ -68,6 +68,12 @@ class TFFMClassifier(BaseEstimator):
         You can use TensorBoard to visualize the stats:
         `tensorboard --logdir={log_dir}`
 
+    session_config : tf.ConfigProto or None, default: None
+        Additional setting passed to tf.Session object.
+        Useful for CPU/GPU switching.
+        `tf.ConfigProto(device_count = {'GPU': 0})` will disable GPU (if enabled)
+
+
     verbose : int, default: 0
         Level of verbosity.
         Set 1 for tensorboard info only and 2 for additional stats every epoch.

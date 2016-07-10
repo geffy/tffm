@@ -11,11 +11,11 @@ The inference time is linear with respect to the number of features.
 # Dependencies
 * [scikit-learn](http://scikit-learn.org/stable/)
 * [numpy](http://www.numpy.org/)
-* [tensorflow 0.9](https://www.tensorflow.org/)
+* [tensorflow 0.8+](https://www.tensorflow.org/)
 * [tqdm](https://github.com/tqdm/tqdm)
 
 # Usage
-The interface is the same as of Scikit-learn models. To train a 6-order FM model with rank=10 for 100 iterations with learning_rate=0.01 use the following sample
+The interface is similar to scikit-learn models. To train a 6-order FM model with rank=10 for 100 iterations with learning_rate=0.01 use the following sample
 ```python
 from tffm import TFFMClassifier
 model = TFFMClassifier(
@@ -30,4 +30,4 @@ model = TFFMClassifier(
 model.fit(X_tr, y_tr, show_progress=True)
 ```
 
-See `example.ipynb` for more details
+See `example.ipynb` and `gpu_benchmark.ipynb` for more details. 
