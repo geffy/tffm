@@ -120,7 +120,9 @@ class TFFMClassifier(BaseEstimator):
         reg=0,
         init_std=0.01,
         input_type='dense',
-        log_dir=None, verbose=0
+        log_dir=None, 
+        session_config=None,
+        verbose=0
     ):
         self.core = TFFMCore(
             order=order,
@@ -135,6 +137,7 @@ class TFFMClassifier(BaseEstimator):
         self.n_epochs = n_epochs
         self.need_logs = log_dir is not None
         self.log_dir = log_dir
+        self.session_config = session_config
         self.verbose = verbose
         self.steps = 0
 
@@ -152,7 +155,7 @@ class TFFMClassifier(BaseEstimator):
             if self.verbose > 0:
                 print('Initialize logs, use: \ntensorboard --logdir={}'.format(
                     os.path.abspath(self.log_dir)))
-        self.session = tf.Session(graph=self.core.graph)
+        self.session = tf.Session(config=self.session_config, graph=self.core.graph)
         self.session.run(self.core.init_all_vars)
 
     def destroy(self):
