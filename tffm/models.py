@@ -7,7 +7,7 @@ import shutil
 from tqdm import tqdm
 
 
-from .core import TFFMCore
+from .core import TFFMCore, loss_logistic
 from sklearn.base import BaseEstimator
 
 
@@ -134,6 +134,7 @@ class TFFMClassifier(BaseEstimator):
             rank=rank,
             n_features=None,
             input_type=input_type,
+            loss_function=loss_logistic,
             optimizer=optimizer,
             reg=reg,
             init_std=init_std)
