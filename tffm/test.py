@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from tffm import TFFMClassifier
+from .models import TFFMClassifier
 from scipy import sparse as sp
 import tensorflow as tf
 

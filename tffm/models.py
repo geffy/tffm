@@ -1,16 +1,15 @@
 """Implementation of an arbitrary order Factorization Machines."""
 
-
+import os
 import numpy as np
 import tensorflow as tf
-from tqdm import tqdm
-import core
-
-from core import TFFMCore
-import sklearn
-from sklearn.base import BaseEstimator
-import os
 import shutil
+from tqdm import tqdm
+
+
+from .core import TFFMCore
+from sklearn.base import BaseEstimator
+
 
 
 class TFFMClassifier(BaseEstimator):
