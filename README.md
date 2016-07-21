@@ -33,3 +33,5 @@ model.fit(X_tr, y_tr, show_progress=True)
 ```
 
 See `example.ipynb` and `gpu_benchmark.ipynb` for more details. 
+
+Corresponding paper is coming soon.
