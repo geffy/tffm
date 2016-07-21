@@ -7,6 +7,8 @@ It supports:
 
 The inference time is linear with respect to the number of features.
 
+Tested on both Python2.7 and Python3.5.
+
 
 # Dependencies
 * [scikit-learn](http://scikit-learn.org/stable/)

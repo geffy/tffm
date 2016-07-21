@@ -117,7 +117,8 @@ def powers_and_coefs(order):
         for p, w in graph_reversed[node]:
             final_coefs[p] -= w * final_coefs[node]
     powers_and_coefs_list = []
-    for dec, c in final_coefs.iteritems():
+    # for dec, c in final_coefs.iteritems():
+    for dec, c in final_coefs.items():
         in_pows, out_pows = np.unique(dec, return_counts=True)
         powers_and_coefs_list.append((in_pows, out_pows, c))
 

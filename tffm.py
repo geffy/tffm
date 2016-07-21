@@ -269,7 +269,7 @@ class TFFMClassifier(BaseEstimator):
             range(n_epochs), unit='epoch', disable=(not show_progress)
         ):
             if self.verbose > 1:
-                print 'start epoch: {}'.format(epoch)
+                print('start epoch: {}'.format(epoch))
 
             # generate permutation
             perm = np.random.permutation(X_.shape[0])
@@ -282,9 +282,9 @@ class TFFMClassifier(BaseEstimator):
                     feed_dict=fd)
 
                 if self.verbose > 1:
-                    print ' -> batch: {}, target: {},'.format(
-                        i,
-                        batch_target_value)
+                    print(' -> batch: {}, target: {},'.format(
+                        i, batch_target_value)
+                    )
 
                 # Write stats
                 if self.need_logs:
