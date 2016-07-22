@@ -132,6 +132,7 @@ def sigmoid(x):
 
 # Predefined loss functions
 # Should take 2 tf.Ops: outputs and targets and should return tf.Op of loss
+# Be carefull about dimentionality -- maybe tf.transpose(outputs) is needed
 
 def loss_logistic(outputs, y):
     margins = -y * tf.transpose(outputs)
@@ -140,5 +141,5 @@ def loss_logistic(outputs, y):
 
 
 def loss_mse(outputs, y):
-    return tf.pow(y - outputs, 2, name='mse_loss')
+    return tf.pow(y -  tf.transpose(outputs), 2, name='mse_loss')
 
