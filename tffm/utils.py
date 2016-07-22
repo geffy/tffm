@@ -123,3 +123,7 @@ def powers_and_coefs(order):
         powers_and_coefs_list.append((in_pows, out_pows, c))
 
     return powers_and_coefs_list
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
