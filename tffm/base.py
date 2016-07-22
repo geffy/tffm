@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractmethod
 import six
 from tqdm import tqdm
 import numpy as np
-
+import os
 
 
 def batcher(X_, y_=None, batch_size=-1):
@@ -238,8 +238,6 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
             self.core.build_graph()
             self.initialize_session()
 
-        # suppose input {0, 1}, but use instead {-1, 1} labels
-        # used_y = y_ * 2 - 1
         used_y = self.preprocess_target(y_)
 
         if n_epochs is None:

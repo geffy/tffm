@@ -140,5 +140,5 @@ def loss_logistic(outputs, y):
 
 
 def loss_mse(outputs, y):
-    return tf.pow((y - outputs), 2, name='mse_loss')
+    return tf.pow(y - outputs, 2, name='mse_loss')
 
