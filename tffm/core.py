@@ -3,16 +3,6 @@ from . import utils
 import math
 
 
-def loss_logistic(outputs, y):
-    margins = -y * tf.transpose(outputs)
-    raw_loss = tf.log(tf.add(1.0, tf.exp(margins)))
-    return tf.minimum(raw_loss, 100, name='truncated_log_loss')
-
-
-def loss_mse(outputs, y):
-    return tf.pow((y-outputs), 2)
-
-
 class TFFMCore():
     """
     This class underlying routine about creating computational graph.
@@ -89,7 +79,6 @@ class TFFMCore():
         self.order = order
         self.rank = rank
         self.input_type = input_type
-        # TODO: write description of loss_function format
         self.loss_function = loss_function
         self.optimizer = optimizer
         self.reg = reg

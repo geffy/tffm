@@ -47,6 +47,22 @@ def batcher(X_, y_=None, batch_size=-1):
 
 
 def batch_to_feeddict(X, y, core):
+    """Prepare feed dict for session.run() from mini-batch.
+    Convert sparse format into tuple (indices, values, shape) for tf.SparseTensor
+    Parameters
+    ----------
+    X : {numpy.array, scipy.sparse.csr_matrix}, shape (batch_size, n_features)
+        Training vector, where batch_size in the number of samples and
+        n_features is the number of features.
+    y : np.array, shape (batch_size,)
+        Target vector relative to X.
+    core : TFFMCore
+        Core used for extract appropriate placeholders 
+    Returns
+    -------
+    fd : dict
+        Dict with formatted placeholders
+    """
     fd = {}
     if core.input_type == 'dense':
         fd[core.train_x] = X.astype(np.float32)
@@ -66,7 +82,108 @@ def batch_to_feeddict(X, y, core):
 
 
 class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
-    """Base class for FM"""
+    """Base class for FM.
+    This class implements L2-regularized arbitrary order FM model.
+
+    It supports arbitrary order of interactions and has linear complexity in the
+    number of features (a generalization of the approach described in Lemma 3.1
+    in the referenced paper, details will be added soon).
+
+    It can handle both dense and sparse input. Only numpy.array and CSR matrix are
+    allowed as inputs; any other input format should be explicitly converted.
+
+    Support logging/visualization with TensorBoard.
+
+
+    Parameters (for initialization)
+    ----------
+    rank : int
+        Number of factors in low-rank appoximation.
+        This value is shared across different orders of interaction.
+
+    order : int, default: 2
+        Order of corresponding polynomial model.
+        All interaction from bias and linear to order will be included.
+
+    optimizer : tf.train.Optimizer, default: AdamOptimizer(learning_rate=0.1)
+        Optimization method used for training
+
+    batch_size : int, default: -1
+        Number of samples in mini-batches. Shuffled every epoch.
+        Use -1 for full gradient (whole training set in each batch).
+
+    n_epoch : int, default: 100
+        Default number of epoches.
+        It can be overrived by explicitly provided value in fit() method.
+
+    reg : float, default: 0
+        Strength of L2 regularization
+
+    init_std : float, default: 0.01
+        Amplitude of random initialization
+
+    input_type : str, 'dense' or 'sparse', default: 'dense'
+        Type of input data. Only numpy.array allowed for 'dense' and
+        scipy.sparse.csr_matrix for 'sparse'. This affects construction of
+        computational graph and cannot be changed during training/testing.
+
+    log_dir : str or None, default: None
+        Path for storing model stats during training. Used only if is not None.
+        WARNING: If such directory already exists, it will be removed!
+        You can use TensorBoard to visualize the stats:
+        `tensorboard --logdir={log_dir}`
+
+    session_config : tf.ConfigProto or None, default: None
+        Additional setting passed to tf.Session object.
+        Useful for CPU/GPU switching.
+        `tf.ConfigProto(device_count = {'GPU': 0})` will disable GPU (if enabled)
+
+    loss_function : function: (tf.Op, tf.Op) -> tf.Op, default: None
+        Loss function.
+        Take 2 tf.Ops: outputs and targets and should return tf.Op of loss
+        See examples: .core.loss_mse, .core.loss_logistic
+
+    verbose : int, default: 0
+        Level of verbosity.
+        Set 1 for tensorboard info only and 2 for additional stats every epoch.
+
+    Attributes
+    ----------
+    core : TFFMCore or None
+        Computational graph with internal utils.
+        Will be initialized during first call .fit()
+
+    session : tf.Session or None
+        Current execution session or None.
+        Should be explicitly terminated via calling destroy() method.
+
+    steps : int
+        Counter of passed lerning epochs, used as step number for writing stats
+
+    n_features : int
+        Number of features used in this dataset.
+        Inferred during the first call of fit() method.
+
+    intercept : float, shape: [1]
+        Intercept (bias) term.
+
+    weights : array of np.array, shape: [order]
+        Array of underlying representations.
+        First element will have shape [n_features, 1],
+        all the others -- [n_features, rank].
+
+    Notes
+    -----
+    You should explicitly call destroy() method to release resources.
+    Parameter rank is shared across all orders of interactions (except bias and
+    linear parts).
+    tf.sparse_reorder doesn't requied since COO format is lexigraphical ordered.
+
+    References
+    ----------
+    Steffen Rendle, Factorization Machines
+        http://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf
+    """
 
     def init_basemodel(self, rank=2, order=2, input_type='dense', n_epochs=100,
                         loss_function=None, batch_size=-1, reg=0, init_std=0.01,
