@@ -6,6 +6,7 @@ from itertools import combinations_with_replacement, takewhile, count
 import math
 from collections import defaultdict
 import numpy as np
+import tensorflow as tf
 
 def get_shorter_decompositions(basic_decomposition):
     """Returns all arrays simpler than basic_decomposition.
@@ -123,3 +124,22 @@ def powers_and_coefs(order):
         powers_and_coefs_list.append((in_pows, out_pows, c))
 
     return powers_and_coefs_list
+
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+
+# Predefined loss functions
+# Should take 2 tf.Ops: outputs and targets and should return tf.Op of loss
+# Be carefull about dimentionality -- maybe tf.transpose(outputs) is needed
+
+def loss_logistic(outputs, y):
+    margins = -y * tf.transpose(outputs)
+    raw_loss = tf.log(tf.add(1.0, tf.exp(margins)))
+    return tf.minimum(raw_loss, 100, name='truncated_log_loss')
+
+
+def loss_mse(outputs, y):
+    return tf.pow(y -  tf.transpose(outputs), 2, name='mse_loss')
+

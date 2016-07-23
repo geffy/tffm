@@ -1,5 +1,5 @@
 import tensorflow as tf
-import utils
+from . import utils
 import math
 
 
@@ -75,10 +75,11 @@ class TFFMCore():
     Steffen Rendle, Factorization Machines
         http://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf
     """
-    def __init__(self, order, rank, n_features, input_type, optimizer, reg, init_std):
+    def __init__(self, order, rank, n_features, input_type, loss_function, optimizer, reg, init_std):
         self.order = order
         self.rank = rank
         self.input_type = input_type
+        self.loss_function = loss_function
         self.optimizer = optimizer
         self.reg = reg
         self.init_std = init_std
@@ -124,10 +125,7 @@ class TFFMCore():
         return self.matmul_cache[order][pow]
 
     def init_loss(self):
-        self.probs = tf.sigmoid(self.outputs, name='probs')
-        margins = -self.train_y * tf.transpose(self.outputs)
-        raw_loss = tf.log(tf.add(1.0, tf.exp(margins)))
-        self.loss = tf.minimum(raw_loss, 100, name='truncated_log_loss')
+        self.loss = self.loss_function(self.outputs, self.train_y)
         self.reduced_loss = tf.reduce_mean(self.loss)
         tf.scalar_summary('loss', self.reduced_loss)
 

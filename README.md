@@ -3,6 +3,7 @@ This is a TensorFlow implementation of an arbitrary order (>=2) Factorization Ma
 It supports:
 * dense and sparse inputs
 * different (gradient-based) optimization methods
+* Classification/regression via different loss functions (logistic and mse implemented)
 * logging via TensorBoard
 
 The inference time is linear with respect to the number of features.
