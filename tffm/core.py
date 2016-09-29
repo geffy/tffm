@@ -75,7 +75,7 @@ class TFFMCore():
     Steffen Rendle, Factorization Machines
         http://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf
     """
-    def __init__(self, order, rank, n_features, input_type, loss_function, optimizer, reg, init_std):
+    def __init__(self, order, rank, input_type, loss_function, optimizer, reg, init_std, seed=None):
         self.order = order
         self.rank = rank
         self.input_type = input_type
@@ -83,6 +83,7 @@ class TFFMCore():
         self.optimizer = optimizer
         self.reg = reg
         self.init_std = init_std
+        self.seed = seed
         self.n_features = None
         self.graph = None
 
@@ -182,6 +183,7 @@ class TFFMCore():
         """Build computational graph according to params."""
         assert self.n_features is not None
         self.graph = tf.Graph()
+        self.graph.seed = self.seed
         with self.graph.as_default():
             with tf.name_scope('params') as scope:
                 self.init_learnable_params()

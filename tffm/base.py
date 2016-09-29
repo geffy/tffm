@@ -35,7 +35,7 @@ def batcher(X_, y_=None, batch_size=-1):
     if batch_size == -1:
         batch_size = n_samples
     if batch_size < 1:
-       raise ValueError('Parameter batch_size={} is unsupported'.format(batch_size)) 
+       raise ValueError('Parameter batch_size={} is unsupported'.format(batch_size))
 
     for i in range(0, n_samples, batch_size):
         upper_bound = min(i + batch_size, n_samples)
@@ -57,7 +57,7 @@ def batch_to_feeddict(X, y, core):
     y : np.array, shape (batch_size,)
         Target vector relative to X.
     core : TFFMCore
-        Core used for extract appropriate placeholders 
+        Core used for extract appropriate placeholders
     Returns
     -------
     fd : dict
@@ -188,16 +188,17 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
     def init_basemodel(self, rank=2, order=2, input_type='dense', n_epochs=100,
                         loss_function=None, batch_size=-1, reg=0, init_std=0.01,
                         optimizer=tf.train.AdamOptimizer(learning_rate=0.1),
-                        log_dir=None, session_config=None, verbose=0):
+                        log_dir=None, session_config=None, verbose=0,
+                        seed=None):
         core_arguments = {
             'order': order,
             'rank': rank,
-            'n_features': None,
             'input_type': input_type,
             'loss_function': loss_function,
             'optimizer': optimizer,
             'reg': reg,
-            'init_std': init_std
+            'init_std': init_std,
+            'seed': seed
         }
         self.core = TFFMCore(**core_arguments)
         self.batch_size = batch_size
@@ -230,9 +231,11 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         """Prepare target values to use."""
 
     def fit(self, X_, y_, n_epochs=None, show_progress=False):
-        # TODO: check this
-        self.core.set_num_features(X_.shape[1])
-        assert self.core.n_features is not None
+
+        if self.core.n_features is None:
+            self.core.set_num_features(X_.shape[1])
+
+        assert self.core.n_features==X_.shape[1], 'Different num of features in initialized graph and input'
 
         if self.core.graph is None:
             self.core.build_graph()
