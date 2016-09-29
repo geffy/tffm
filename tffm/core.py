@@ -95,7 +95,7 @@ class TFFMCore():
             r = self.rank
             if i == 1:
                 r = 1
-            rnd_weights = tf.random_uniform([self.n_features, r], -self.init_std, self.init_std)
+            rnd_weights = tf.random_uniform([self.n_features, r], -self.init_std, self.init_std, seed=0)
             self.w[i - 1] = tf.Variable(rnd_weights, trainable=True, name='embedding_' + str(i))
         self.b = tf.Variable(self.init_std, trainable=True, name='bias')
         tf.scalar_summary('bias', self.b)
@@ -150,19 +150,34 @@ class TFFMCore():
 
         for i in range(2, self.order + 1):
             with tf.name_scope('order_{}'.format(i)) as scope:
-                raw_dot = matmul_wrapper(self.train_x, self.w[i - 1], self.input_type)
-                dot = tf.pow(raw_dot, i)
-                initialization_shape = tf.shape(dot)
-                for in_pows, out_pows, coef in utils.powers_and_coefs(i):
-                    product_of_pows = tf.ones(initialization_shape)
-                    for pow_idx in range(len(in_pows)):
-                        product_of_pows *= tf.pow(
-                            self.pow_matmul(i, in_pows[pow_idx]),
-                            out_pows[pow_idx]
-                        )
-                    dot -= coef * product_of_pows
-                contribution = tf.reshape(tf.reduce_sum(dot, [1]), [-1, 1])
-                contribution /= float(math.factorial(i))
+                # raw_dot = matmul_wrapper(self.train_x, self.w[i - 1], self.input_type)
+                # dot = tf.pow(raw_dot, i)
+                # initialization_shape = tf.shape(dot)
+                # for in_pows, out_pows, coef in utils.powers_and_coefs(i):
+                #     product_of_pows = tf.ones(initialization_shape)
+                #     for pow_idx in range(len(in_pows)):
+                #         product_of_pows *= tf.pow(
+                #             self.pow_matmul(i, in_pows[pow_idx]),
+                #             out_pows[pow_idx]
+                #         )
+                #     dot -= coef * product_of_pows
+                # contribution = tf.reshape(tf.reduce_sum(dot, [1]), [-1, 1])
+                # contribution /= float(math.factorial(i))
+
+                shape = tf.pack([tf.shape(self.train_x)[0], self.rank])
+                prev_row = [tf.fill(shape, 1.0), tf.fill(shape, 0.0)]
+
+                for j in range(1, self.n_features+1):
+                    curr_row = [tf.fill(shape, 1.0)]
+                    left = tf.reshape(self.train_x[:, j - 1], (-1, 1))
+                    right = tf.reshape(self.w[i - 1][j - 1, :], (1, -1))
+                    outer = tf.matmul(left, right)
+                    for t in range(1, min(j+1, self.order+1)):
+                        curr_row.append(prev_row[t] + outer * prev_row[t - 1])
+                    if j < self.order:
+                        curr_row.append(tf.fill(shape, 0.0))
+                    prev_row = curr_row
+                contribution = tf.reshape(tf.reduce_sum(prev_row[-1], [1]), [-1, 1])
             self.outputs += contribution
 
         with tf.name_scope('loss') as scope:

@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from .models import TFFMClassifier
+from tffm import TFFMClassifier
 from scipy import sparse as sp
 import tensorflow as tf
 
@@ -10,11 +10,11 @@ class TestFM(unittest.TestCase):
 
     def setUp(self):
         # Reproducibility.
+        # TODO: TF seed.
         np.random.seed(0)
 
-        self.X = np.random.rand(20, 10)
-        self.linear_weights = np.random.rand(10)
-        self.y = np.sign(self.X.dot(self.linear_weights) + 0.1 * np.random.rand(20))
+        self.X = np.random.randn(20, 10)
+        self.y = np.random.binomial(1, 0.5, size=(20))
 
     def decision_function_order_4(self, input_type):
         model = TFFMClassifier(
@@ -22,7 +22,8 @@ class TestFM(unittest.TestCase):
             rank=10,
             optimizer=tf.train.AdamOptimizer(learning_rate=0.1),
             n_epochs=1,
-            input_type=input_type
+            input_type=input_type,
+            init_std=1.
         )
 
         if input_type == 'dense':
@@ -31,6 +32,8 @@ class TestFM(unittest.TestCase):
             X = sp.csr_matrix(self.X)
 
         model.fit(X, self.y)
+
+
         b = model.intercept
         w = model.weights
 
@@ -56,6 +59,7 @@ class TestFM(unittest.TestCase):
                     x_prod = X[:, i] * X[:, j]
                     w_prod = np.sum(w[1][i, :] * w[1][j, :])
                     ans += x_prod * w_prod
+            # print(ans)
         elif order == 3:
             for i in range(n_feat):
                 for j in range(i+1, n_feat):
@@ -63,6 +67,7 @@ class TestFM(unittest.TestCase):
                         x_prod = X[:, i] * X[:, j] * X[:, k]
                         w_prod = np.sum(w[2][i, :] * w[2][j, :] * w[2][k, :])
                         ans += x_prod * w_prod
+            print(ans)
         elif order == 4:
             for i in range(n_feat):
                 for j in range(i+1, n_feat):
@@ -71,6 +76,8 @@ class TestFM(unittest.TestCase):
                             x_prod = X[:, i] * X[:, j] * X[:, k] * X[:, ell]
                             w_prod = np.sum(w[3][i, :] * w[3][j, :] * w[3][k, :] * w[3][ell, :])
                             ans += x_prod * w_prod
+
+            print(ans)
         else:
             assert False
         return ans
