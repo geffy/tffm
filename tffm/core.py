@@ -172,9 +172,9 @@ class TFFMCore():
                     left = tf.reshape(self.train_x[:, j - 1], (-1, 1))
                     right = tf.reshape(self.w[i - 1][j - 1, :], (1, -1))
                     outer = tf.matmul(left, right)
-                    for t in range(1, min(j+1, self.order+1)):
+                    for t in range(1, min(j+1, i+1)):
                         curr_row.append(prev_row[t] + outer * prev_row[t - 1])
-                    if j < self.order:
+                    if j < i:
                         curr_row.append(tf.fill(shape, 0.0))
                     prev_row = curr_row
                 contribution = tf.reshape(tf.reduce_sum(prev_row[-1], [1]), [-1, 1])
