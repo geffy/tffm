@@ -13,17 +13,20 @@ class TestFM(unittest.TestCase):
         np.random.seed(0)
 
         self.X = np.random.randn(20, 10)
-        self.linear_weights = np.random.randn(10)
-        self.y = np.sign(self.X.dot(self.linear_weights) + 0.1 * np.random.randn(20))  # 1/-1 values
-        self.y = (self.y + 1) / 2  # 1/0 values
+        self.y = np.random.binomial(1, 0.5, size=20)
 
     def decision_function_order_4(self, input_type):
+        # Explanation for init_std=1.0.
+        # With small init_std the contribution of higher order terms is
+        # neglectable, so we would essentially test only low-order implementation.
+        # That's why a relatively high init_std=1.0 here.
         model = TFFMClassifier(
             order=4,
             rank=10,
             optimizer=tf.train.AdamOptimizer(learning_rate=0.1),
-            n_epochs=1,
-            input_type=input_type
+            n_epochs=0,
+            input_type=input_type,
+            init_std=1.0
         )
 
         if input_type == 'dense':
@@ -39,7 +42,7 @@ class TestFM(unittest.TestCase):
 
         actual = model.decision_function(X)
         model.destroy()
-        np.testing.assert_almost_equal(actual, desired, decimal=6)
+        np.testing.assert_almost_equal(actual, desired, decimal=5)
 
     def test_dense(self):
         self.decision_function_order_4('dense')
