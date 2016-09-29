@@ -10,7 +10,6 @@ class TestFM(unittest.TestCase):
 
     def setUp(self):
         # Reproducibility.
-        # TODO: TF seed.
         np.random.seed(0)
 
         self.X = np.random.randn(20, 10)
@@ -33,8 +32,6 @@ class TestFM(unittest.TestCase):
             X = sp.csr_matrix(self.X)
 
         model.fit(X, self.y)
-
-
         b = model.intercept
         w = model.weights
 

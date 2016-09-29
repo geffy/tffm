@@ -106,7 +106,7 @@ class TFFMCore():
             r = self.rank
             if i == 1:
                 r = 1
-            rnd_weights = tf.random_uniform([self.n_features, r], -self.init_std, self.init_std, seed=0)
+            rnd_weights = tf.random_uniform([self.n_features, r], -self.init_std, self.init_std)
             self.w[i - 1] = tf.Variable(rnd_weights, trainable=True, name='embedding_' + str(i))
         self.b = tf.Variable(self.init_std, trainable=True, name='bias')
         tf.scalar_summary('bias', self.b)
