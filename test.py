@@ -26,7 +26,8 @@ class TestFM(unittest.TestCase):
             optimizer=tf.train.AdamOptimizer(learning_rate=0.1),
             n_epochs=0,
             input_type=input_type,
-            init_std=1.0
+            init_std=1.0,
+            seed=0
         )
 
         if input_type == 'dense':
@@ -42,7 +43,7 @@ class TestFM(unittest.TestCase):
 
         actual = model.decision_function(X)
         model.destroy()
-        np.testing.assert_almost_equal(actual, desired, decimal=5)
+        np.testing.assert_almost_equal(actual, desired, decimal=4)
 
     def test_dense(self):
         self.decision_function_order_4('dense')
