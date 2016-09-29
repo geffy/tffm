@@ -192,19 +192,19 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
 
     def init_basemodel(self, rank=2, order=2, input_type='dense', n_epochs=100,
                         loss_function=None, batch_size=-1, reg=0, init_std=0.01,
-                        method='parallel',
+                        method='parallel', seed=None,
                         optimizer=tf.train.AdamOptimizer(learning_rate=0.1),
                         log_dir=None, session_config=None, verbose=0):
         core_arguments = {
             'order': order,
             'rank': rank,
-            'n_features': None,
             'input_type': input_type,
             'loss_function': loss_function,
             'optimizer': optimizer,
             'reg': reg,
             'init_std': init_std,
             'method': method,
+            'seed': seed,
         }
         self.core = TFFMCore(**core_arguments)
         self.batch_size = batch_size
@@ -237,9 +237,11 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         """Prepare target values to use."""
 
     def fit(self, X_, y_, n_epochs=None, show_progress=False):
-        # TODO: check this
-        self.core.set_num_features(X_.shape[1])
-        assert self.core.n_features is not None
+
+        if self.core.n_features is None:
+            self.core.set_num_features(X_.shape[1])
+
+        assert self.core.n_features==X_.shape[1], 'Different num of features in initialized graph and input'
 
         if self.core.graph is None:
             self.core.build_graph()

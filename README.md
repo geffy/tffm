@@ -33,6 +33,9 @@ model = TFFMClassifier(
 model.fit(X_tr, y_tr, show_progress=True)
 ```
 
-See `example.ipynb` and `gpu_benchmark.ipynb` for more details. 
+See `example.ipynb` and `gpu_benchmark.ipynb` for more details.
 
 Corresponding paper is coming soon.
+
+# Testing
+Just run ```python test.py``` in the terminal. ```Nosetests``` works too, but for some reason it makes TensorFlow print insane amount of logs on the screen.

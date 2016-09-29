@@ -13,9 +13,13 @@ class TestFM(unittest.TestCase):
         np.random.seed(0)
 
         self.X = np.random.randn(20, 10)
-        self.y = np.random.binomial(1, 0.5, size=(20))
+        self.y = np.random.binomial(1, 0.5, size=20)
 
     def decision_function_order_4(self, input_type, method):
+        # Explanation for init_std=1.0.
+        # With small init_std the contribution of higher order terms is
+        # neglectable, so we would essentially test only low-order implementation.
+        # That's why a relatively high init_std=1.0 here.
         model = TFFMClassifier(
             order=4,
             rank=10,
@@ -23,7 +27,8 @@ class TestFM(unittest.TestCase):
             n_epochs=1,
             input_type=input_type,
             init_std=1.,
-            method=method
+            method=method,
+            seed=0,
         )
 
         if input_type == 'dense':
