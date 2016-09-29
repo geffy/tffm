@@ -35,6 +35,11 @@ class TFFMCore():
     init_std : float, default: 0.01
         Amplitude of random initialization
 
+    method : str, 'parallel' or 'sequential', default: 'parallel'
+        The inference method. 'sequential' is assimptotically better, and
+        thus is preferable for large orders (e.g. > 10).
+        'parallel' is faster for small orders and supports sparce input.
+
 
     Attributes
     ----------
