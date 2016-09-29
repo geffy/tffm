@@ -12,9 +12,10 @@ class TestFM(unittest.TestCase):
         # Reproducibility.
         np.random.seed(0)
 
-        self.X = np.random.rand(20, 10)
-        self.linear_weights = np.random.rand(10)
-        self.y = np.sign(self.X.dot(self.linear_weights) + 0.1 * np.random.rand(20))
+        self.X = np.random.randn(20, 10)
+        self.linear_weights = np.random.randn(10)
+        self.y = np.sign(self.X.dot(self.linear_weights) + 0.1 * np.random.randn(20))  # 1/-1 values
+        self.y = (self.y + 1) / 2  # 1/0 values
 
     def decision_function_order_4(self, input_type):
         model = TFFMClassifier(
