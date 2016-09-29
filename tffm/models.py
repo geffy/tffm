@@ -27,6 +27,7 @@ class TFFMClassifier(TFFMBaseModel):
     def __init__(self, rank=2, order=2, input_type='dense', n_epochs=100,
                 optimizer=tf.train.AdamOptimizer(learning_rate=0.1), reg=0,
                 batch_size=-1, init_std=0.01, log_dir=None, verbose=0,
+                method='parallel',
                 session_config=None):
         init_params = {
             'rank': rank,
@@ -39,7 +40,8 @@ class TFFMClassifier(TFFMBaseModel):
             'optimizer': optimizer,
             'log_dir': log_dir,
             'loss_function': loss_logistic,
-            'verbose': verbose
+            'verbose': verbose,
+            'method': method,
         }
         self.init_basemodel(**init_params)
 
@@ -99,6 +101,7 @@ class TFFMRegressor(TFFMBaseModel):
     def __init__(self, rank=2, order=2, input_type='dense', n_epochs=100,
                 optimizer=tf.train.AdamOptimizer(learning_rate=0.1), reg=0,
                 batch_size=-1, init_std=0.01, log_dir=None, verbose=0,
+                method='parallel',
                 session_config=None):
         init_params = {
             'rank': rank,
@@ -111,7 +114,8 @@ class TFFMRegressor(TFFMBaseModel):
             'optimizer': optimizer,
             'log_dir': log_dir,
             'loss_function': loss_mse,
-            'verbose': verbose
+            'verbose': verbose,
+            'method': method,
         }
         self.init_basemodel(**init_params)
 
