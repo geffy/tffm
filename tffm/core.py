@@ -38,7 +38,7 @@ class TFFMCore():
     method : str, 'parallel' or 'sequential', default: 'parallel'
         The inference method. 'sequential' is assimptotically better, and
         thus is preferable for large orders (e.g. > 10).
-        'parallel' is faster for small orders and supports sparce input.
+        'parallel' is faster for small orders and supports sparse input.
 
 
     Attributes
@@ -92,6 +92,10 @@ class TFFMCore():
         self.method = method
         self.n_features = None
         self.graph = None
+
+        if input_type == 'sparse' and method == 'sequential':
+            raise NotImplementedError('The sequential method does not support '
+                                      'sparse inputs.')
 
     def set_num_features(self, n_features):
         self.n_features = n_features

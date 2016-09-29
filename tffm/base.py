@@ -125,7 +125,7 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
     method : str, 'parallel' or 'sequential', default: 'parallel'
         The inference method. 'sequential' is assimptotically better and
         thus is preferable for large orders (e.g. > 10).
-        'parallel' is faster for small orders and supports sparce input.
+        'parallel' is faster for small orders and supports sparse input.
 
     input_type : str, 'dense' or 'sparse', default: 'dense'
         Type of input data. Only numpy.array allowed for 'dense' and
