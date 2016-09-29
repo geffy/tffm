@@ -16,14 +16,15 @@ class TestFM(unittest.TestCase):
         self.X = np.random.randn(20, 10)
         self.y = np.random.binomial(1, 0.5, size=(20))
 
-    def decision_function_order_4(self, input_type):
+    def decision_function_order_4(self, input_type, method):
         model = TFFMClassifier(
             order=4,
             rank=10,
             optimizer=tf.train.AdamOptimizer(learning_rate=0.1),
             n_epochs=1,
             input_type=input_type,
-            init_std=1.
+            init_std=1.,
+            method=method
         )
 
         if input_type == 'dense':
@@ -43,11 +44,14 @@ class TestFM(unittest.TestCase):
         model.destroy()
         np.testing.assert_almost_equal(actual, desired, decimal=4)
 
-    def test_dense(self):
-        self.decision_function_order_4('dense')
+    def test_parallel_dense(self):
+        self.decision_function_order_4('dense', 'parallel')
 
-    # def test_sparse(self):
-    #     self.decision_function_order_4('sparse')
+    def test_sequential_dense(self):
+        self.decision_function_order_4('dense', 'sequential')
+
+    def test_parallel_sparse(self):
+        self.decision_function_order_4('sparse', 'parallel')
 
 
     def bruteforce_inference_one_interaction(self, X, w, order):
