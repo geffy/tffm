@@ -192,7 +192,6 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         core_arguments = {
             'order': order,
             'rank': rank,
-            'n_features': None,
             'input_type': input_type,
             'loss_function': loss_function,
             'optimizer': optimizer,
@@ -230,9 +229,11 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         """Prepare target values to use."""
 
     def fit(self, X_, y_, n_epochs=None, show_progress=False):
-        # TODO: check this
-        self.core.set_num_features(X_.shape[1])
-        assert self.core.n_features is not None
+        
+        if self.core.n_features is None:
+            self.core.set_num_features(X_.shape[1])
+
+        assert self.core.n_features==X_.shape[1], 'Different num of features in initialized graph and input'
 
         if self.core.graph is None:
             self.core.build_graph()
