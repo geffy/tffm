@@ -208,6 +208,7 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         self.session_config = session_config
         self.verbose = verbose
         self.steps = 0
+        self.seed = seed
 
     def initialize_session(self):
         """Start computational session on builded graph.
@@ -245,6 +246,10 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
 
         if n_epochs is None:
             n_epochs = self.n_epochs
+
+        # For reproducible results
+        if self.seed:
+            np.random.seed(self.seed)
 
         # Training cycle
         for epoch in tqdm(range(n_epochs), unit='epoch', disable=(not show_progress)):
