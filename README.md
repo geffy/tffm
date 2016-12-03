@@ -38,4 +38,4 @@ See `example.ipynb` and `gpu_benchmark.ipynb` for more details.
 Corresponding paper is coming soon.
 
 # Testing
-Just run ```python test.py``` in the terminal. ```Nosetests``` works too, but for some reason it makes TensorFlow print insane amount of logs on the screen.
+Just run ```python test.py``` in the terminal. ```nosetests``` works too, but you must pass the `--logging-level=WARNING` flag to avoid printing insane amounts of TensorFlow logs to the screen.
