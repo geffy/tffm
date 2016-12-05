@@ -181,7 +181,7 @@ class TFFMCore():
 
     def build_graph(self):
         """Build computational graph according to params."""
-        assert self.n_features is not None
+        assert self.n_features is not None, 'Number of features is unknown. It can be set explicitly by .core.set_num_features'
         self.graph = tf.Graph()
         self.graph.seed = self.seed
         with self.graph.as_default():
