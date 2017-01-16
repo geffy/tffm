@@ -39,6 +39,7 @@ class TFFMClassifier(TFFMBaseModel):
             'optimizer': optimizer,
             'log_dir': log_dir,
             'loss_function': loss_logistic,
+            'session_config': session_config,
             'verbose': verbose,
             'seed': seed
         }
@@ -112,6 +113,7 @@ class TFFMRegressor(TFFMBaseModel):
             'optimizer': optimizer,
             'log_dir': log_dir,
             'loss_function': loss_mse,
+            'session_config': session_config,
             'verbose': verbose,
             'seed': seed
         }
