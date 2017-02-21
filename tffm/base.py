@@ -218,7 +218,7 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         if self.core.graph is None:
             raise 'Graph not found. Try call .core.build_graph() before .initialize_session()'
         if self.need_logs:
-            self.summary_writer = tf.train.SummaryWriter(
+            self.summary_writer = tf.summary.FileWriter(
                 self.log_dir,
                 self.core.graph)
             if self.verbose > 0:

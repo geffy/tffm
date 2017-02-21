@@ -99,7 +99,7 @@ class TFFMCore():
             rnd_weights = tf.random_uniform([self.n_features, r], -self.init_std, self.init_std)
             self.w[i - 1] = tf.Variable(rnd_weights, trainable=True, name='embedding_' + str(i))
         self.b = tf.Variable(self.init_std, trainable=True, name='bias')
-        tf.scalar_summary('bias', self.b)
+        tf.summary.scalar('bias', self.b)
 
     def init_placeholders(self):
         if self.input_type == 'dense':
@@ -128,16 +128,16 @@ class TFFMCore():
     def init_loss(self):
         self.loss = self.loss_function(self.outputs, self.train_y)
         self.reduced_loss = tf.reduce_mean(self.loss)
-        tf.scalar_summary('loss', self.reduced_loss)
+        tf.summary.scalar('loss', self.reduced_loss)
 
     def init_regularization(self):
         self.regularization = 0
         for i in range(1, self.order + 1):
             node_name = 'regularization_penalty_' + str(i)
             norm = tf.nn.l2_loss(self.w[i - 1], name=node_name)
-            tf.scalar_summary('norm_W_{}'.format(i), norm)
+            tf.summary.scalar('norm_W_{}'.format(i), norm)
             self.regularization += norm
-        tf.scalar_summary('regularization_penalty', self.regularization)
+        tf.summary.scalar('regularization_penalty', self.regularization)
 
     def init_main_block(self):
         self.x_pow_cache = {}
@@ -177,7 +177,7 @@ class TFFMCore():
         self.checked_target = tf.verify_tensor_all_finite(
             self.target,
             msg='NaN or Inf in target value', name='target')
-        tf.scalar_summary('target', self.checked_target)
+        tf.summary.scalar('target', self.checked_target)
 
     def build_graph(self):
         """Build computational graph according to params."""
@@ -197,8 +197,8 @@ class TFFMCore():
             self.init_target()
 
             self.trainer = self.optimizer.minimize(self.checked_target)
-            self.init_all_vars = tf.initialize_all_variables()
-            self.summary_op = tf.merge_all_summaries()
+            self.init_all_vars = tf.global_variables_initializer()
+            self.summary_op = tf.summary.merge_all()
             self.saver = tf.train.Saver()
 
 
