@@ -239,6 +239,6 @@ def pow_wrapper(X, p, optype):
     if optype == 'dense':
         return tf.pow(X, p)
     elif optype == 'sparse':
-        return tf.SparseTensor(X.indices, tf.pow(X.values, p), X.shape)
+        return tf.SparseTensor(X.indices, tf.pow(X.values, p), X.dense_shape)
     else:
         raise NameError('Unknown input type in pow_wrapper')
