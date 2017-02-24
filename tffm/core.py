@@ -32,6 +32,11 @@ class TFFMCore():
     reg : float, default: 0
         Strength of L2 regularization
 
+    use_diag : bool, default: False
+        Use diagonal elements of weights matrix or not.
+        In the other words, should terms like x^2 be included.
+        Ofter reffered as "Polynomial Network"
+
     init_std : float, default: 0.01
         Amplitude of random initialization
 
@@ -75,9 +80,10 @@ class TFFMCore():
     Steffen Rendle, Factorization Machines
         http://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf
     """
-    def __init__(self, order, rank, input_type, loss_function, optimizer, reg, init_std, seed=None):
+    def __init__(self, order, rank, input_type, loss_function, optimizer, reg, init_std, use_diag=False, seed=None):
         self.order = order
         self.rank = rank
+        self.use_diag = use_diag
         self.input_type = input_type
         self.loss_function = loss_function
         self.optimizer = optimizer
@@ -105,79 +111,73 @@ class TFFMCore():
         if self.input_type == 'dense':
             self.train_x = tf.placeholder(tf.float32, shape=[None, self.n_features], name='x')
         else:
-            self.raw_indices = tf.placeholder(tf.int64, shape=[None, 2], name='raw_indices')
-            self.raw_values = tf.placeholder(tf.float32, shape=[None], name='raw_data')
-            self.raw_shape = tf.placeholder(tf.int64, shape=[2], name='raw_shape')
+            with tf.name_scope('sparse_placeholders') as scope:
+                self.raw_indices = tf.placeholder(tf.int64, shape=[None, 2], name='raw_indices')
+                self.raw_values = tf.placeholder(tf.float32, shape=[None], name='raw_data')
+                self.raw_shape = tf.placeholder(tf.int64, shape=[2], name='raw_shape')
             # tf.sparse_reorder is not needed since scipy return COO in canonical order
             self.train_x = tf.SparseTensor(self.raw_indices, self.raw_values, self.raw_shape)
-
         self.train_y = tf.placeholder(tf.float32, shape=[None], name='Y')
 
     def pow_matmul(self, order, pow):
         if pow not in self.x_pow_cache:
-            x_pow = pow_wrapper(self.train_x, pow, self.input_type)
+            x_pow = utils.pow_wrapper(self.train_x, pow, self.input_type)
             self.x_pow_cache[pow] = x_pow
         if order not in self.matmul_cache:
             self.matmul_cache[order] = {}
         if pow not in self.matmul_cache[order]:
             w_pow = tf.pow(self.w[order - 1], pow)
-            dot = matmul_wrapper(self.x_pow_cache[pow], w_pow, self.input_type)
+            dot = utils.matmul_wrapper(self.x_pow_cache[pow], w_pow, self.input_type)
             self.matmul_cache[order][pow] = dot
         return self.matmul_cache[order][pow]
-
-    def init_loss(self):
-        self.loss = self.loss_function(self.outputs, self.train_y)
-        self.reduced_loss = tf.reduce_mean(self.loss)
-        tf.summary.scalar('loss', self.reduced_loss)
-
-    def init_regularization(self):
-        self.regularization = 0
-        for i in range(1, self.order + 1):
-            node_name = 'regularization_penalty_' + str(i)
-            norm = tf.nn.l2_loss(self.w[i - 1], name=node_name)
-            tf.summary.scalar('norm_W_{}'.format(i), norm)
-            self.regularization += norm
-        tf.summary.scalar('regularization_penalty', self.regularization)
 
     def init_main_block(self):
         self.x_pow_cache = {}
         self.matmul_cache = {}
-
         self.outputs = self.b
-
         with tf.name_scope('linear_part') as scope:
-            contribution = matmul_wrapper(self.train_x, self.w[0], self.input_type)
+            contribution = utils.matmul_wrapper(self.train_x, self.w[0], self.input_type)
         self.outputs += contribution
-
         for i in range(2, self.order + 1):
             with tf.name_scope('order_{}'.format(i)) as scope:
-                raw_dot = matmul_wrapper(self.train_x, self.w[i - 1], self.input_type)
+                raw_dot = utils.matmul_wrapper(self.train_x, self.w[i - 1], self.input_type)
                 dot = tf.pow(raw_dot, i)
                 initialization_shape = tf.shape(dot)
                 for in_pows, out_pows, coef in utils.powers_and_coefs(i):
                     product_of_pows = tf.ones(initialization_shape)
                     for pow_idx in range(len(in_pows)):
-                        product_of_pows *= tf.pow(
-                            self.pow_matmul(i, in_pows[pow_idx]),
-                            out_pows[pow_idx]
-                        )
+                        pmm = self.pow_matmul(i, in_pows[pow_idx])
+                        product_of_pows *= tf.pow(pmm, out_pows[pow_idx])
                     dot -= coef * product_of_pows
                 contribution = tf.reshape(tf.reduce_sum(dot, [1]), [-1, 1])
                 contribution /= float(math.factorial(i))
             self.outputs += contribution
 
-        with tf.name_scope('loss') as scope:
-            self.init_loss()
-
+    def init_regularization(self):
         with tf.name_scope('regularization') as scope:
-            self.init_regularization()
+            self.regularization = 0
+            for order in range(1, self.order + 1):
+                node_name = 'regularization_penalty_' + str(order)
+                norm = tf.nn.l2_loss(self.w[order - 1], name=node_name)
+                tf.summary.scalar('norm_W_{}'.format(order), norm)
+                self.regularization += norm
+            tf.summary.scalar('regularization_penalty', self.regularization)
+
+    def init_loss(self):
+        with tf.name_scope('loss') as scope:
+            self.loss = self.loss_function(self.outputs, self.train_y)
+            self.reduced_loss = tf.reduce_mean(self.loss)
+            tf.summary.scalar('loss', self.reduced_loss)
 
     def init_target(self):
-        self.target = self.reduced_loss + self.reg * self.regularization
-        self.checked_target = tf.verify_tensor_all_finite(
-            self.target,
-            msg='NaN or Inf in target value', name='target')
-        tf.summary.scalar('target', self.checked_target)
+        with tf.name_scope('target') as scope:
+            self.target = self.reduced_loss + self.reg * self.regularization
+            self.checked_target = tf.verify_tensor_all_finite(
+                self.target,
+                msg='NaN or Inf in target value', 
+                name='target'
+            )
+            tf.summary.scalar('target', self.checked_target)
 
     def build_graph(self):
         """Build computational graph according to params."""
@@ -185,60 +185,17 @@ class TFFMCore():
         self.graph = tf.Graph()
         self.graph.seed = self.seed
         with self.graph.as_default():
-            with tf.name_scope('params') as scope:
+            with tf.name_scope('learnable_params') as scope:
                 self.init_learnable_params()
-
-            with tf.name_scope('inputBlock') as scope:
+            with tf.name_scope('input_block') as scope:
                 self.init_placeholders()
-
-            with tf.name_scope('mainBlock') as scope:
+            with tf.name_scope('main_block') as scope:
                 self.init_main_block()
-
-            self.init_target()
-
+            with tf.name_scope('optimization_criterion') as scope:
+                self.init_regularization()
+                self.init_loss()
+                self.init_target()
             self.trainer = self.optimizer.minimize(self.checked_target)
             self.init_all_vars = tf.global_variables_initializer()
             self.summary_op = tf.summary.merge_all()
             self.saver = tf.train.Saver()
-
-
-def matmul_wrapper(A, B, optype):
-    """Wrapper for handling sparse and dense versions of matmul operation.
-
-    Parameters
-    ----------
-    A : tf.Tensor
-    B : tf.Tensor
-    optype : str, {'dense', 'sparse'}
-
-    Returns
-    -------
-    tf.Tensor
-    """
-    if optype == 'dense':
-        return tf.matmul(A, B)
-    elif optype == 'sparse':
-        return tf.sparse_tensor_dense_matmul(A, B)
-    else:
-        raise NameError('Unknown input type in matmul_wrapper')
-
-
-def pow_wrapper(X, p, optype):
-    """Wrapper for handling sparse and dense versions of power operation.
-
-    Parameters
-    ----------
-    X : tf.Tensor
-    p : int
-    optype : str, {'dense', 'sparse'}
-
-    Returns
-    -------
-    tf.Tensor
-    """
-    if optype == 'dense':
-        return tf.pow(X, p)
-    elif optype == 'sparse':
-        return tf.SparseTensor(X.indices, tf.pow(X.values, p), X.dense_shape)
-    else:
-        raise NameError('Unknown input type in pow_wrapper')
