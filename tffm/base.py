@@ -79,8 +79,6 @@ def batch_to_feeddict(X, y, core):
     return fd
 
 
-
-
 class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
     """Base class for FM.
     This class implements L2-regularized arbitrary order FM model.
@@ -185,22 +183,20 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         http://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf
     """
 
-    def init_basemodel(self, rank=2, order=2, input_type='dense', n_epochs=100,
-                        loss_function=None, batch_size=-1, reg=0, init_std=0.01,
-                        optimizer=tf.train.AdamOptimizer(learning_rate=0.1),
-                        log_dir=None, session_config=None, use_diag=False, verbose=0,
-                        seed=None):
-        core_arguments = {
-            'order': order,
-            'rank': rank,
-            'input_type': input_type,
-            'loss_function': loss_function,
-            'optimizer': optimizer,
-            'reg': reg,
-            'init_std': init_std,
-            'use_diag': use_diag,
-            'seed': seed
-        }
+    @classmethod
+    def set_default_params_for_core(cls, core_arguments):
+        core_arguments.setdefault('rank', 2)
+        core_arguments.setdefault('order', 2)
+        core_arguments.setdefault('input_type', 'dense')
+        core_arguments.setdefault('optimizer', tf.train.AdamOptimizer(learning_rate=0.1))
+        core_arguments.setdefault('reg', 0)
+        core_arguments.setdefault('init_std', 0.01)
+        core_arguments.setdefault('use_diag', False)
+        core_arguments.setdefault('seed', None)
+        return core_arguments
+
+    def init_basemodel(self, n_epochs=100, batch_size=-1, log_dir=None, session_config=None, verbose=0, **core_arguments):
+        core_arguments = self.set_default_params_for_core(core_arguments)
         self.core = TFFMCore(**core_arguments)
         self.batch_size = batch_size
         self.n_epochs = n_epochs
@@ -209,22 +205,19 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         self.session_config = session_config
         self.verbose = verbose
         self.steps = 0
-        self.seed = seed
+        self.seed = core_arguments['seed']
 
     def initialize_session(self):
         """Start computational session on builded graph.
-
         Initialize summary logger (if needed).
         """
         if self.core.graph is None:
             raise 'Graph not found. Try call .core.build_graph() before .initialize_session()'
         if self.need_logs:
-            self.summary_writer = tf.summary.FileWriter(
-                self.log_dir,
-                self.core.graph)
+            self.summary_writer = tf.summary.FileWriter(self.log_dir, self.core.graph)
             if self.verbose > 0:
-                print('Initialize logs, use: \ntensorboard --logdir={}'.format(
-                    os.path.abspath(self.log_dir)))
+                full_log_path = os.path.abspath(self.log_dir)
+                print('Initialize logs, use: \ntensorboard --logdir={}'.format(full_log_path))
         self.session = tf.Session(config=self.session_config, graph=self.core.graph)
         self.session.run(self.core.init_all_vars)
 
@@ -233,7 +226,6 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         """Prepare target values to use."""
 
     def fit(self, X_, y_, n_epochs=None, show_progress=False):
-
         if self.core.n_features is None:
             self.core.set_num_features(X_.shape[1])
 
@@ -254,27 +246,23 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
 
         # Training cycle
         for epoch in tqdm(range(n_epochs), unit='epoch', disable=(not show_progress)):
-            if self.verbose > 1:
-                print('start epoch: {}'.format(epoch))
-
             # generate permutation
             perm = np.random.permutation(X_.shape[0])
-
+            epoch_loss = []
             # iterate over batches
             for bX, bY in batcher(X_[perm], y_=used_y[perm], batch_size=self.batch_size):
                 fd = batch_to_feeddict(bX, bY, core=self.core)
                 ops_to_run = [self.core.trainer, self.core.target, self.core.summary_op]
                 result = self.session.run(ops_to_run, feed_dict=fd)
                 _, batch_target_value, summary_str = result
-
-                if self.verbose > 1:
-                    print('target: ' + str(batch_target_value))
-
-                # Write stats
+                epoch_loss.append(batch_target_value)
+                # write stats 
                 if self.need_logs:
                     self.summary_writer.add_summary(summary_str, self.steps)
                     self.summary_writer.flush()
                 self.steps += 1
+            if self.verbose > 1:
+                    print('[epoch {}]: mean target value: {}'.format(epoch, np.mean(epoch_loss)))
 
     def decision_function(self, X):
         if self.core.graph is None:
@@ -311,6 +299,6 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         self.core.saver.restore(self.session, path)
 
     def destroy(self):
-        """Terminate session and destroyes graph."""
+        """Terminates session and destroyes graph."""
         self.session.close()
         self.core.graph = None

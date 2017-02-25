@@ -81,7 +81,7 @@ class TFFMCore():
     Steffen Rendle, Factorization Machines
         http://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf
     """
-    def __init__(self, order, rank, input_type, loss_function, optimizer, reg, init_std, use_diag=False, seed=None):
+    def __init__(self, order, rank, input_type, loss_function, optimizer, reg, init_std, use_diag, seed):
         self.order = order
         self.rank = rank
         self.use_diag = use_diag

@@ -21,29 +21,12 @@ class TFFMClassifier(TFFMBaseModel):
 
     Only binary classification with 0/1 labels supported.
 
-    See TFFMBaseModel docs for details about parameters.
+    See TFFMBaseModel and TFFMCore docs for details about parameters.
     """
 
-    def __init__(self, rank=2, order=2, input_type='dense', n_epochs=100,
-                optimizer=tf.train.AdamOptimizer(learning_rate=0.1), reg=0,
-                batch_size=-1, init_std=0.01, log_dir=None, verbose=0,
-                session_config=None, use_diag=False, seed=None):
-        init_params = {
-            'rank': rank,
-            'order': order,
-            'input_type': input_type,
-            'n_epochs': n_epochs,
-            'batch_size': batch_size,
-            'reg': reg,
-            'init_std': init_std,
-            'optimizer': optimizer,
-            'log_dir': log_dir,
-            'loss_function': loss_logistic,
-            'session_config': session_config,
-            'verbose': verbose,
-            'use_diag': use_diag,
-            'seed': seed
-        }
+    def __init__(self, **init_params):
+        assert 'loss_function' not in init_params
+        init_params['loss_function'] = loss_logistic
         self.init_basemodel(**init_params)
 
     def preprocess_target(self, y_):
@@ -96,29 +79,12 @@ class TFFMRegressor(TFFMBaseModel):
     This class implements L2-regularized arbitrary order FM model with MSE
     loss and gradient-based optimization.
 
-    See TFFMBaseModel docs for details about parameters.
+    See TFFMBaseModel and TFFMCore docs for details about parameters.
     """
 
-    def __init__(self, rank=2, order=2, input_type='dense', n_epochs=100,
-                optimizer=tf.train.AdamOptimizer(learning_rate=0.1), reg=0,
-                batch_size=-1, init_std=0.01, log_dir=None, verbose=0,
-                session_config=None, use_diag=False, seed=None):
-        init_params = {
-            'rank': rank,
-            'order': order,
-            'input_type': input_type,
-            'n_epochs': n_epochs,
-            'batch_size': batch_size,
-            'reg': reg,
-            'init_std': init_std,
-            'optimizer': optimizer,
-            'log_dir': log_dir,
-            'loss_function': loss_mse,
-            'session_config': session_config,
-            'verbose': verbose,
-            'use_diag': use_diag,
-            'seed': seed
-        }
+    def __init__(self, **init_params):
+        assert 'loss_function' not in init_params
+        init_params['loss_function'] = loss_mse
         self.init_basemodel(**init_params)
 
     def preprocess_target(self, y_):
