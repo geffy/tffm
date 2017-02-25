@@ -35,7 +35,8 @@ class TFFMCore():
     use_diag : bool, default: False
         Use diagonal elements of weights matrix or not.
         In the other words, should terms like x^2 be included.
-        Ofter reffered as "Polynomial Network"
+        Ofter reffered as a "Polynomial Network".
+        Default value (False) corresponds to FM.
 
     init_std : float, default: 0.01
         Amplitude of random initialization
@@ -142,15 +143,19 @@ class TFFMCore():
             with tf.name_scope('order_{}'.format(i)) as scope:
                 raw_dot = utils.matmul_wrapper(self.train_x, self.w[i - 1], self.input_type)
                 dot = tf.pow(raw_dot, i)
-                initialization_shape = tf.shape(dot)
-                for in_pows, out_pows, coef in utils.powers_and_coefs(i):
-                    product_of_pows = tf.ones(initialization_shape)
-                    for pow_idx in range(len(in_pows)):
-                        pmm = self.pow_matmul(i, in_pows[pow_idx])
-                        product_of_pows *= tf.pow(pmm, out_pows[pow_idx])
-                    dot -= coef * product_of_pows
-                contribution = tf.reshape(tf.reduce_sum(dot, [1]), [-1, 1])
-                contribution /= float(math.factorial(i))
+                if self.use_diag:
+                    contribution = tf.reshape(tf.reduce_sum(dot, [1]), [-1, 1])
+                    contribution /= 2.0**(i-1)
+                else:
+                    initialization_shape = tf.shape(dot)
+                    for in_pows, out_pows, coef in utils.powers_and_coefs(i):
+                        product_of_pows = tf.ones(initialization_shape)
+                        for pow_idx in range(len(in_pows)):
+                            pmm = self.pow_matmul(i, in_pows[pow_idx])
+                            product_of_pows *= tf.pow(pmm, out_pows[pow_idx])
+                        dot -= coef * product_of_pows
+                    contribution = tf.reshape(tf.reduce_sum(dot, [1]), [-1, 1])
+                    contribution /= float(math.factorial(i))
             self.outputs += contribution
 
     def init_regularization(self):

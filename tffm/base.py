@@ -188,7 +188,7 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
     def init_basemodel(self, rank=2, order=2, input_type='dense', n_epochs=100,
                         loss_function=None, batch_size=-1, reg=0, init_std=0.01,
                         optimizer=tf.train.AdamOptimizer(learning_rate=0.1),
-                        log_dir=None, session_config=None, verbose=0,
+                        log_dir=None, session_config=None, use_diag=False, verbose=0,
                         seed=None):
         core_arguments = {
             'order': order,
@@ -198,6 +198,7 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
             'optimizer': optimizer,
             'reg': reg,
             'init_std': init_std,
+            'use_diag': use_diag,
             'seed': seed
         }
         self.core = TFFMCore(**core_arguments)
