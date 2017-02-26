@@ -118,7 +118,9 @@ class TFFMCore():
             if i == 1:
                 r = 1
             rnd_weights = tf.random_uniform([self.n_features, r], -self.init_std, self.init_std)
-            self.w[i - 1] = tf.Variable(rnd_weights, trainable=True, name='embedding_' + str(i))
+            self.w[i - 1] = tf.verify_tensor_all_finite(
+                tf.Variable(rnd_weights, trainable=True, name='embedding_' + str(i)),
+                msg='NaN or Inf in w[{}].'.format(i-1))
         self.b = tf.Variable(self.init_std, trainable=True, name='bias')
         tf.summary.scalar('bias', self.b)
 
@@ -178,7 +180,7 @@ class TFFMCore():
             with tf.name_scope('reweights') as scope:
                 if self.reweight_reg:
                     counts = utils.count_nonzero_wrapper(self.train_x, self.input_type)
-                    sqrt_counts = tf.sqrt(tf.to_float(counts))
+                    sqrt_counts = tf.transpose(tf.sqrt(tf.to_float(counts)))
                 else:
                     sqrt_counts = tf.ones_like(self.w[0])
                 self.reweights = sqrt_counts / tf.reduce_sum(sqrt_counts)
