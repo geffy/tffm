@@ -186,8 +186,8 @@ class TFFMCore():
                 self.reweights = sqrt_counts / tf.reduce_sum(sqrt_counts)
             for order in range(1, self.order + 1):
                 node_name = 'regularization_penalty_' + str(order)
-                norm = tf.nn.l2_loss(self.w[order - 1]*self.reweights, name=node_name)
-                tf.summary.scalar('norm_W_{}'.format(order), norm)
+                norm = tf.reduce_mean(tf.pow(self.w[order - 1]*self.reweights, 2), name=node_name)
+                tf.summary.scalar('penalty_W_{}'.format(order), norm)
                 self.regularization += norm
             tf.summary.scalar('regularization_penalty', self.regularization)
 
