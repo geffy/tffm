@@ -5,19 +5,18 @@ import math
 
 class TFFMCore():
     """
-    This class underlying routine about creating computational graph.
+    This class implements underlying routines about creating computational graph.
 
-    Its required n_features to be set at graph building time.
+    Its required `n_features` to be set at graph building time.
 
 
     Parameters
     ----------
-
     order : int, default: 2
         Order of corresponding polynomial model.
         All interaction from bias and linear to order will be included.
 
-    rank : int
+    rank : int, default: 5
         Number of factors in low-rank appoximation.
         This value is shared across different orders of interaction.
 
@@ -26,7 +25,12 @@ class TFFMCore():
         scipy.sparse.csr_matrix for 'sparse'. This affects construction of
         computational graph and cannot be changed during training/testing.
 
-    optimizer : tf.train.Optimizer, default: AdamOptimizer(learning_rate=0.1)
+    loss_function : function: (tf.Op, tf.Op) -> tf.Op, default: None
+        Loss function.
+        Take 2 tf.Ops: outputs and targets and should return tf.Op of loss
+        See examples: .core.loss_mse, .core.loss_logistic
+
+    optimizer : tf.train.Optimizer, default: AdamOptimizer(learning_rate=0.01)
         Optimization method used for training
 
     reg : float, default: 0
@@ -40,6 +44,9 @@ class TFFMCore():
 
     init_std : float, default: 0.01
         Amplitude of random initialization
+
+    seed : int or None, default: None
+        Random seed used at graph creating time
 
 
     Attributes
@@ -70,7 +77,7 @@ class TFFMCore():
 
     Notes
     -----
-    Parameter rank is shared across all orders of interactions (except bias and
+    Parameter `rank` is shared across all orders of interactions (except bias and
     linear parts).
     tf.sparse_reorder doesn't requied since COO format is lexigraphical ordered.
     This implementation uses a generalized approach from referenced paper along
@@ -81,7 +88,9 @@ class TFFMCore():
     Steffen Rendle, Factorization Machines
         http://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf
     """
-    def __init__(self, order, rank, input_type, loss_function, optimizer, reg, init_std, use_diag, seed):
+    def __init__(self, order=2, rank=2, input_type='dense', loss_function=utils.loss_logistic, 
+                optimizer=tf.train.AdamOptimizer(learning_rate=0.01), reg=0, init_std=0.01, 
+                use_diag=False, seed=None):
         self.order = order
         self.rank = rank
         self.use_diag = use_diag

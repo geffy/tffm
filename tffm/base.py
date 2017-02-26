@@ -95,17 +95,6 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
 
     Parameters (for initialization)
     ----------
-    rank : int
-        Number of factors in low-rank appoximation.
-        This value is shared across different orders of interaction.
-
-    order : int, default: 2
-        Order of corresponding polynomial model.
-        All interaction from bias and linear to order will be included.
-
-    optimizer : tf.train.Optimizer, default: AdamOptimizer(learning_rate=0.1)
-        Optimization method used for training
-
     batch_size : int, default: -1
         Number of samples in mini-batches. Shuffled every epoch.
         Use -1 for full gradient (whole training set in each batch).
@@ -113,17 +102,6 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
     n_epoch : int, default: 100
         Default number of epoches.
         It can be overrived by explicitly provided value in fit() method.
-
-    reg : float, default: 0
-        Strength of L2 regularization
-
-    init_std : float, default: 0.01
-        Amplitude of random initialization
-
-    input_type : str, 'dense' or 'sparse', default: 'dense'
-        Type of input data. Only numpy.array allowed for 'dense' and
-        scipy.sparse.csr_matrix for 'sparse'. This affects construction of
-        computational graph and cannot be changed during training/testing.
 
     log_dir : str or None, default: None
         Path for storing model stats during training. Used only if is not None.
@@ -133,17 +111,16 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
 
     session_config : tf.ConfigProto or None, default: None
         Additional setting passed to tf.Session object.
-        Useful for CPU/GPU switching.
+        Useful for CPU/GPU switching, setting number of threads and so on,
         `tf.ConfigProto(device_count = {'GPU': 0})` will disable GPU (if enabled)
-
-    loss_function : function: (tf.Op, tf.Op) -> tf.Op, default: None
-        Loss function.
-        Take 2 tf.Ops: outputs and targets and should return tf.Op of loss
-        See examples: .core.loss_mse, .core.loss_logistic
 
     verbose : int, default: 0
         Level of verbosity.
         Set 1 for tensorboard info only and 2 for additional stats every epoch.
+
+    kwargs : dict, default: {}
+        Arguments for TFFMCore constructor.
+        See TFFMCore's doc for details.
 
     Attributes
     ----------
@@ -173,30 +150,12 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
     Notes
     -----
     You should explicitly call destroy() method to release resources.
-    Parameter rank is shared across all orders of interactions (except bias and
-    linear parts).
-    tf.sparse_reorder doesn't requied since COO format is lexigraphical ordered.
-
-    References
-    ----------
-    Steffen Rendle, Factorization Machines
-        http://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf
+    See TFFMCore's doc for details.
     """
 
-    @classmethod
-    def set_default_params_for_core(cls, core_arguments):
-        core_arguments.setdefault('rank', 2)
-        core_arguments.setdefault('order', 2)
-        core_arguments.setdefault('input_type', 'dense')
-        core_arguments.setdefault('optimizer', tf.train.AdamOptimizer(learning_rate=0.1))
-        core_arguments.setdefault('reg', 0)
-        core_arguments.setdefault('init_std', 0.01)
-        core_arguments.setdefault('use_diag', False)
-        core_arguments.setdefault('seed', None)
-        return core_arguments
 
-    def init_basemodel(self, n_epochs=100, batch_size=-1, log_dir=None, session_config=None, verbose=0, **core_arguments):
-        core_arguments = self.set_default_params_for_core(core_arguments)
+    def init_basemodel(self, n_epochs=100, batch_size=-1, log_dir=None, session_config=None, verbose=0, seed=None, **core_arguments):
+        core_arguments['seed'] = seed
         self.core = TFFMCore(**core_arguments)
         self.batch_size = batch_size
         self.n_epochs = n_epochs
@@ -205,7 +164,7 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         self.session_config = session_config
         self.verbose = verbose
         self.steps = 0
-        self.seed = core_arguments['seed']
+        self.seed = seed
 
     def initialize_session(self):
         """Start computational session on builded graph.
@@ -272,7 +231,7 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
             fd = batch_to_feeddict(bX, bY, core=self.core)
             output.append(self.session.run(self.core.outputs, feed_dict=fd))
         distances = np.concatenate(output).reshape(-1)
-        # TODO: check this reshape
+        # WARN: be carefull with this reshape in case of multiclass
         return distances
 
     @abstractmethod

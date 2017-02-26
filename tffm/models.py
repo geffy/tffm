@@ -30,7 +30,7 @@ class TFFMClassifier(TFFMBaseModel):
         self.init_basemodel(**init_params)
 
     def preprocess_target(self, y_):
-        # suppose input {0, 1}, but use instead {-1, 1} labels
+        # suppose input {0, 1}, but internally will use {-1, 1} labels instead
         assert(set(y_) == set([0, 1]))
         return y_ * 2 - 1
 
