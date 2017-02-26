@@ -3,18 +3,18 @@ This is a TensorFlow implementation of an arbitrary order (>=2) Factorization Ma
 It supports:
 * dense and sparse inputs
 * different (gradient-based) optimization methods
-* Classification/regression via different loss functions (logistic and mse implemented)
+* classification/regression via different loss functions (logistic and mse implemented)
 * logging via TensorBoard
 
 The inference time is linear with respect to the number of features.
 
-Tested on both Python2.7 and Python3.5.
+Tested on Python3.5, but should work on Python2.7
 
 
 # Dependencies
 * [scikit-learn](http://scikit-learn.org/stable/)
 * [numpy](http://www.numpy.org/)
-* [tensorflow 0.8+](https://www.tensorflow.org/)
+* [tensorflow 1.0](https://www.tensorflow.org/)
 * [tqdm](https://github.com/tqdm/tqdm)
 
 # Usage
@@ -35,7 +35,7 @@ model.fit(X_tr, y_tr, show_progress=True)
 
 See `example.ipynb` and `gpu_benchmark.ipynb` for more details.
 
-Corresponding paper is coming soon.
+It's highly recommended to read `tffm/core.py` for help.
 
 # Testing
 Just run ```python test.py``` in the terminal. ```nosetests``` works too, but you must pass the `--logging-level=WARNING` flag to avoid printing insane amounts of TensorFlow logs to the screen.
