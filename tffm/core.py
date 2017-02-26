@@ -28,7 +28,7 @@ class TFFMCore():
     loss_function : function: (tf.Op, tf.Op) -> tf.Op, default: None
         Loss function.
         Take 2 tf.Ops: outputs and targets and should return tf.Op of loss
-        See examples: .core.loss_mse, .core.loss_logistic
+        See examples: .utils.loss_mse, .utils.loss_logistic
 
     optimizer : tf.train.Optimizer, default: AdamOptimizer(learning_rate=0.01)
         Optimization method used for training
@@ -41,6 +41,10 @@ class TFFMCore():
         In the other words, should terms like x^2 be included.
         Ofter reffered as a "Polynomial Network".
         Default value (False) corresponds to FM.
+
+    reweight_reg : bool, default: False
+        Use frequency of features as weights for regularization or not.
+        Should be usefull for very sparse data and/or small batches
 
     init_std : float, default: 0.01
         Amplitude of random initialization
@@ -90,7 +94,7 @@ class TFFMCore():
     """
     def __init__(self, order=2, rank=2, input_type='dense', loss_function=utils.loss_logistic, 
                 optimizer=tf.train.AdamOptimizer(learning_rate=0.01), reg=0, init_std=0.01, 
-                use_diag=False, seed=None):
+                use_diag=False, reweight_reg=False, seed=None):
         self.order = order
         self.rank = rank
         self.use_diag = use_diag
@@ -98,6 +102,7 @@ class TFFMCore():
         self.loss_function = loss_function
         self.optimizer = optimizer
         self.reg = reg
+        self.reweight_reg = reweight_reg
         self.init_std = init_std
         self.seed = seed
         self.n_features = None
@@ -170,9 +175,16 @@ class TFFMCore():
     def init_regularization(self):
         with tf.name_scope('regularization') as scope:
             self.regularization = 0
+            with tf.name_scope('reweights') as scope:
+                if self.reweight_reg:
+                    counts = utils.count_nonzero_wrapper(self.train_x, self.input_type)
+                    sqrt_counts = tf.sqrt(tf.to_float(counts))
+                else:
+                    sqrt_counts = tf.ones_like(self.w[0])
+                self.reweights = sqrt_counts / tf.reduce_sum(sqrt_counts)
             for order in range(1, self.order + 1):
                 node_name = 'regularization_penalty_' + str(order)
-                norm = tf.nn.l2_loss(self.w[order - 1], name=node_name)
+                norm = tf.nn.l2_loss(self.w[order - 1]*self.reweights, name=node_name)
                 tf.summary.scalar('norm_W_{}'.format(order), norm)
                 self.regularization += norm
             tf.summary.scalar('regularization_penalty', self.regularization)
@@ -189,8 +201,7 @@ class TFFMCore():
             self.checked_target = tf.verify_tensor_all_finite(
                 self.target,
                 msg='NaN or Inf in target value', 
-                name='target'
-            )
+                name='target')
             tf.summary.scalar('target', self.checked_target)
 
     def build_graph(self):

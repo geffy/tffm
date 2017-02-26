@@ -127,7 +127,7 @@ def powers_and_coefs(order):
 
 
 def matmul_wrapper(A, B, optype):
-    """Wrapper for handling sparse and dense versions of matmul operation.
+    """Wrapper for handling sparse and dense versions of `tf.matmul` operation.
 
     Parameters
     ----------
@@ -139,16 +139,17 @@ def matmul_wrapper(A, B, optype):
     -------
     tf.Tensor
     """
-    if optype == 'dense':
-        return tf.matmul(A, B)
-    elif optype == 'sparse':
-        return tf.sparse_tensor_dense_matmul(A, B)
-    else:
-        raise NameError('Unknown input type in matmul_wrapper')
+    with tf.name_scope('matmul_wrapper') as scope:
+        if optype == 'dense':
+            return tf.matmul(A, B)
+        elif optype == 'sparse':
+            return tf.sparse_tensor_dense_matmul(A, B)
+        else:
+            raise NameError('Unknown input type in matmul_wrapper')
 
 
 def pow_wrapper(X, p, optype):
-    """Wrapper for handling sparse and dense versions of power operation.
+    """Wrapper for handling sparse and dense versions of `tf.pow` operation.
 
     Parameters
     ----------
@@ -160,12 +161,35 @@ def pow_wrapper(X, p, optype):
     -------
     tf.Tensor
     """
-    if optype == 'dense':
-        return tf.pow(X, p)
-    elif optype == 'sparse':
-        return tf.SparseTensor(X.indices, tf.pow(X.values, p), X.dense_shape)
-    else:
-        raise NameError('Unknown input type in pow_wrapper')
+    with tf.name_scope('pow_wrapper') as scope:
+        if optype == 'dense':
+            return tf.pow(X, p)
+        elif optype == 'sparse':
+            return tf.SparseTensor(X.indices, tf.pow(X.values, p), X.dense_shape)
+        else:
+            raise NameError('Unknown input type in pow_wrapper')
+
+
+def count_nonzero_wrapper(X, optype):
+    """Wrapper for handling sparse and dense versions of `tf.count_nonzero`.
+
+    Parameters
+    ----------
+    X : tf.Tensor (N, K)
+    optype : str, {'dense', 'sparse'}
+
+    Returns
+    -------
+    tf.Tensor (1,K)
+    """
+    with tf.name_scope('count_nonzero_wrapper') as scope:
+        if optype == 'dense':
+            return tf.count_nonzero(X, axis=0, keep_dims=True)
+        elif optype == 'sparse':
+            indicator_X = tf.SparseTensor(X.indices, tf.ones_like(X.values), X.dense_shape)
+            return tf.sparse_reduce_sum(indicator_X, axis=0, keep_dims=True)
+        else:
+            raise NameError('Unknown input type in count_nonzero_wrapper')
 
 
 def sigmoid(x):
