@@ -8,10 +8,9 @@ It supports:
 
 The inference time is linear with respect to the number of features.
 
-This implementation is quite similar to the one described in Blondel's et al. paper [https://arxiv.org/abs/1607.07195], but was developed independently and prior to the first appearence of the paper.
-
 Tested on Python3.5, but should work on Python2.7
 
+This implementation is quite similar to the one described in Blondel's et al. paper [https://arxiv.org/abs/1607.07195], but was developed independently and prior to the first appearence of the paper.
 
 # Dependencies
 * [scikit-learn](http://scikit-learn.org/stable/)
@@ -46,6 +45,7 @@ Just run ```python test.py``` in the terminal. ```nosetests``` works too, but yo
 
 # Citation
 If you use this software in academic research, please, cite it using the following BibTeX:
+```latex
 @misc{trofimov2016,
 author = {Mikhail Trofimov, Alexander Novikov},
 title = {tffm: TensorFlow implementation of an arbitrary order Factorization Machine},
@@ -54,3 +54,4 @@ publisher = {GitHub},
 journal = {GitHub repository},
 howpublished = {\url{https://github.com/geffy/tffm}},
 }
+```
