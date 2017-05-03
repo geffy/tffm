@@ -9,20 +9,30 @@ def read(fname):
 
 
 def main():
-    with open('requirements.txt') as f:
-        required = f.read().splitlines()
-
     setup(
         name='tffm',
-        version='1.0.0',
-        author=None,
-        author_email=None,
+        version='1.0.0a1',
+        author="Mikhail Trofimov",
+        author_email="mikhail.trofimov@phystech.edu",
+        url='https://github.com/geffy/tffm',
         description=('TensforFlow implementation of arbitrary order '
                      'Factorization Machine'),
-        packages=find_packages(),
-        long_description=read('README.md'),
-        install_requires=required
-       )
+        classifiers=[
+            'Development Status :: 3 - Alpha',
+            'Intended Audience :: Science/Research',
+            'Topic :: Scientific/Engineering',
+            'License :: OSI Approved :: MIT License',
+            'Programming Language :: Python :: 2.7',
+            'Programming Language :: Python :: 3',
+        ],
+        license='MIT',
+        install_requires=[
+            'scikit-learn',
+            'numpy',
+            'tqdm'
+        ],
+        packages=find_packages()
+    )
 
 
 if __name__ == "__main__":
