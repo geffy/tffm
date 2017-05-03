@@ -1,0 +1,4 @@
+scikit-learn>=0.18.0
+numpy>=1.11.0
+tensorflow>=0.8.0
+tqdm>=4.11.0
