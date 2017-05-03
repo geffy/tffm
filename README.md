@@ -15,8 +15,11 @@ This implementation is quite similar to the one described in Blondel's et al. pa
 # Dependencies
 * [scikit-learn](http://scikit-learn.org/stable/)
 * [numpy](http://www.numpy.org/)
-* [tensorflow 1.0](https://www.tensorflow.org/)
 * [tqdm](https://github.com/tqdm/tqdm)
+* [tensorflow 1.0](https://www.tensorflow.org/)
+
+# Installation
+Stable version can be installed via `pip install tffm`. 
 
 # Usage
 The interface is similar to scikit-learn models. To train a 6-order FM model with rank=10 for 100 iterations with learning_rate=0.01 use the following sample
