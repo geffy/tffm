@@ -154,11 +154,10 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
     """
 
 
-    def init_basemodel(self, n_epochs=100, batch_size=-1, pred_batch_size=-1, log_dir=None, session_config=None, verbose=0, seed=None, **core_arguments):
+    def init_basemodel(self, n_epochs=100, batch_size=-1, log_dir=None, session_config=None, verbose=0, seed=None, **core_arguments):
         core_arguments['seed'] = seed
         self.core = TFFMCore(**core_arguments)
         self.batch_size = batch_size
-        self.pred_batch_size = pred_batch_size
         self.n_epochs = n_epochs
         self.need_logs = log_dir is not None
         self.log_dir = log_dir
@@ -224,11 +223,14 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
             if self.verbose > 1:
                     print('[epoch {}]: mean target value: {}'.format(epoch, np.mean(epoch_loss)))
 
-    def decision_function(self, X):
+    def decision_function(self, X, pred_batch_size):
         if self.core.graph is None:
             raise sklearn.exceptions.NotFittedError("Call fit before prediction")
         output = []
-        for bX, bY in batcher(X, y_=None, batch_size=self.pred_batch_size):
+        if pred_batch_size is None:
+            pred_batch_size = self.batch_size
+
+        for bX, bY in batcher(X, y_=None, batch_size=pred_batch_size):
             fd = batch_to_feeddict(bX, bY, core=self.core)
             output.append(self.session.run(self.core.outputs, feed_dict=fd))
         distances = np.concatenate(output).reshape(-1)
@@ -236,7 +238,7 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         return distances
 
     @abstractmethod
-    def predict(self, X):
+    def predict(self, X, pred_batch_size=None):
         """Predict target values for X."""
 
     @property
