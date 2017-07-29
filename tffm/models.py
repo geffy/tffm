@@ -34,24 +34,25 @@ class TFFMClassifier(TFFMBaseModel):
         assert(set(y_) == set([0, 1]))
         return y_ * 2 - 1
 
-    def predict(self, X):
+    def predict(self, X, pred_batch_size=None):
         """Predict using the FM model
 
         Parameters
         ----------
         X : {numpy.array, scipy.sparse.csr_matrix}, shape = (n_samples, n_features)
             Samples.
+        pred_batch_size : int batch size for prediction (default None)
 
         Returns
         -------
         predictions : array, shape = (n_samples,)
             Returns predicted values.
         """
-        raw_output = self.decision_function(X)
+        raw_output = self.decision_function(X, pred_batch_size)
         predictions = (raw_output > 0).astype(int)
         return predictions
 
-    def predict_proba(self, X):
+    def predict_proba(self, X, pred_batch_size=None):
         """Probability estimates.
 
         The returned estimates for all 2 classes are ordered by the
@@ -60,13 +61,14 @@ class TFFMClassifier(TFFMBaseModel):
         Parameters
         ----------
         X : array-like, shape = [n_samples, n_features]
+        pred_batch_size : int batch size for prediction (default None)
 
         Returns
         -------
         probs : array-like, shape = [n_samples, 2]
             Returns the probability of the sample for each class in the model.
         """
-        outputs = self.decision_function(X)
+        outputs = self.decision_function(X, pred_batch_size)
         probs_positive = sigmoid(outputs)
         probs_negative = 1 - probs_positive
         probs = np.vstack((probs_negative.T, probs_positive.T))
@@ -90,18 +92,19 @@ class TFFMRegressor(TFFMBaseModel):
     def preprocess_target(self, y_):
         return y_
 
-    def predict(self, X):
+    def predict(self, X, pred_batch_size=None):
         """Predict using the FM model
 
         Parameters
         ----------
         X : {numpy.array, scipy.sparse.csr_matrix}, shape = (n_samples, n_features)
             Samples.
+        pred_batch_size : int batch size for prediction (default None)
 
         Returns
         -------
         predictions : array, shape = (n_samples,)
             Returns predicted values.
         """
-        predictions = self.decision_function(X)
+        predictions = self.decision_function(X, pred_batch_size)
         return predictions
