@@ -16,7 +16,7 @@ This implementation is quite similar to the one described in Blondel's et al. pa
 * [scikit-learn](http://scikit-learn.org/stable/)
 * [numpy](http://www.numpy.org/)
 * [tqdm](https://github.com/tqdm/tqdm)
-* [tensorflow 1.0](https://www.tensorflow.org/)
+* [tensorflow 1.0+ (tested on 1.3)](https://www.tensorflow.org/)
 
 # Installation
 Stable version can be installed via `pip install tffm`. 
