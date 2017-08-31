@@ -223,7 +223,7 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
             if self.verbose > 1:
                     print('[epoch {}]: mean target value: {}'.format(epoch, np.mean(epoch_loss)))
 
-    def decision_function(self, X, pred_batch_size):
+    def decision_function(self, X, pred_batch_size=None):
         if self.core.graph is None:
             raise sklearn.exceptions.NotFittedError("Call fit before prediction")
         output = []
