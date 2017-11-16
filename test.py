@@ -1,9 +1,10 @@
 import unittest
 import numpy as np
-from tffm import TFFMClassifier
+from tffm import TFFMClassifier, TFFMRegressor
 from scipy import sparse as sp
 import tensorflow as tf
 import pickle
+import operator
 
 
 class TestFM(unittest.TestCase):
@@ -17,6 +18,35 @@ class TestFM(unittest.TestCase):
 
         self.X = np.random.randn(n_samples, n_features)
         self.y = np.random.binomial(1, 0.5, size=n_samples)
+        self.s = np.random.uniform(low=.05, high=10, size=n_samples)
+        self.s_ones = np.ones_like(self.y)
+
+    def train_model(self, model_type='classifier', use_weights=False, s=None):
+        if model_type == 'classifier':
+            model = TFFMClassifier(
+                order=1,
+                rank=10,
+                optimizer=tf.train.AdamOptimizer(learning_rate=1.0),
+                n_epochs=2,
+                init_std=1.0,
+                seed=0,
+                use_weights=use_weights
+            )
+        else:
+            model = TFFMRegressor(
+                order=1,
+                rank=10,
+                optimizer=tf.train.AdamOptimizer(learning_rate=1.0),
+                n_epochs=2,
+                init_std=1.0,
+                seed=0,
+                use_weights=use_weights
+            )
+
+        model.fit(self.X, self.y, s)
+        w = model.weights
+        model.destroy()
+        return w
 
     def decision_function_order_4(self, input_type, use_diag=False):
         # Explanation for init_std=1.0.
@@ -47,7 +77,6 @@ class TestFM(unittest.TestCase):
 
         actual = model.decision_function(X)
         model.destroy()
-
         np.testing.assert_almost_equal(actual, desired, decimal=4)
 
     def test_dense_FM(self):
@@ -62,6 +91,25 @@ class TestFM(unittest.TestCase):
     def test_sparse_PN(self):
         self.decision_function_order_4(input_type='sparse', use_diag=True)
 
+    def test_classifier_using_weights_ones(self):
+        actual = self.train_model(use_weights=True, s=self.s_ones)
+        desired = self.train_model()
+        np.testing.assert_almost_equal(actual, desired, decimal=4)
+    
+    def test_classifier_using_weights(self):
+        w_trained_weights = self.train_model(use_weights=True, s=self.s)
+        w_trained_no_weights = self.train_model()
+        np.testing.utils.assert_array_compare(operator.__ne__, w_trained_no_weights, w_trained_weights)
+
+    def test_regressor_using_weights_ones(self):
+        actual = self.train_model(model_type='regressor', use_weights=True, s=self.s_ones)
+        desired = self.train_model(model_type='regressor')
+        np.testing.assert_almost_equal(actual, desired, decimal=4)
+    
+    def test_regressor_using_weights(self):
+        w_trained_weights = self.train_model(model_type='regressor', use_weights=True, s=self.s)
+        w_trained_no_weights = self.train_model(model_type='regressor')
+        np.testing.utils.assert_array_compare(operator.__ne__, w_trained_no_weights, w_trained_weights)
 
     def bruteforce_inference_one_interaction(self, X, w, order, use_diag):
         n_obj, n_feat = X.shape
