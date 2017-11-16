@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from .core import TFFMCore
 from .base import TFFMBaseModel
-from .utils import loss_logistic, loss_mse, sigmoid
+from .utils import loss_logistic, loss_mse, loss_weighted_logistic, loss_weighted_mse, sigmoid
 
 
 
@@ -26,7 +26,12 @@ class TFFMClassifier(TFFMBaseModel):
 
     def __init__(self, **init_params):
         assert 'loss_function' not in init_params
-        init_params['loss_function'] = loss_logistic
+        use_weights = init_params.get('use_weights', False)
+        if use_weights:
+            init_params['loss_function'] = loss_weighted_logistic
+        else:
+            init_params['loss_function'] = loss_logistic
+    
         self.init_basemodel(**init_params)
 
     def preprocess_target(self, y_):
@@ -86,7 +91,12 @@ class TFFMRegressor(TFFMBaseModel):
 
     def __init__(self, **init_params):
         assert 'loss_function' not in init_params
-        init_params['loss_function'] = loss_mse
+        use_weights = init_params.get('use_weights', False)
+        if use_weights:
+            init_params['loss_function'] = loss_weighted_mse
+        else:
+            init_params['loss_function'] = loss_mse
+
         self.init_basemodel(**init_params)
 
     def preprocess_target(self, y_):

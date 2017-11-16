@@ -52,6 +52,8 @@ class TFFMCore():
     seed : int or None, default: None
         Random seed used at graph creating time
 
+    use_weights: bool, default: False
+        Indicates if the training data has corresponding weights
 
     Attributes
     ----------
@@ -94,7 +96,7 @@ class TFFMCore():
     """
     def __init__(self, order=2, rank=2, input_type='dense', loss_function=utils.loss_logistic, 
                 optimizer=tf.train.AdamOptimizer(learning_rate=0.01), reg=0, init_std=0.01, 
-                use_diag=False, reweight_reg=False, seed=None):
+                use_diag=False, reweight_reg=False, seed=None, use_weights=False):
         self.order = order
         self.rank = rank
         self.use_diag = use_diag
@@ -107,6 +109,7 @@ class TFFMCore():
         self.seed = seed
         self.n_features = None
         self.graph = None
+        self.use_weights=use_weights
 
     def set_num_features(self, n_features):
         self.n_features = n_features
@@ -135,6 +138,7 @@ class TFFMCore():
             # tf.sparse_reorder is not needed since scipy return COO in canonical order
             self.train_x = tf.SparseTensor(self.raw_indices, self.raw_values, self.raw_shape)
         self.train_y = tf.placeholder(tf.float32, shape=[None], name='Y')
+        self.train_s = tf.placeholder_with_default(input=tf.constant([1.0]), shape=[None], name='S')
 
     def pow_matmul(self, order, pow):
         if pow not in self.x_pow_cache:
@@ -193,7 +197,11 @@ class TFFMCore():
 
     def init_loss(self):
         with tf.name_scope('loss') as scope:
-            self.loss = self.loss_function(self.outputs, self.train_y)
+            if self.use_weights:
+                self.loss = self.loss_function(self.outputs, self.train_y, self.train_s)
+            else:
+                self.loss = self.loss_function(self.outputs, self.train_y)
+
             self.reduced_loss = tf.reduce_mean(self.loss)
             tf.summary.scalar('loss', self.reduced_loss)
 

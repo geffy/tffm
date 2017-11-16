@@ -8,7 +8,7 @@ import numpy as np
 import os
 
 
-def batcher(X_, y_=None, batch_size=-1):
+def batcher(X_, y_=None, s_=None, batch_size=-1):
     """Split data to mini-batches.
 
     Parameters
@@ -20,6 +20,9 @@ def batcher(X_, y_=None, batch_size=-1):
     y_ : np.array or None, shape (n_samples,)
         Target vector relative to X.
 
+    s_ : np.array or None, shape (n_samples,)
+        Weight/Scaling vector relative to X.
+
     batch_size : int
         Size of batches.
         Use -1 for full-size batches
@@ -29,6 +32,7 @@ def batcher(X_, y_=None, batch_size=-1):
     ret_x : {numpy.array, scipy.sparse.csr_matrix}, shape (batch_size, n_features)
         Same type as input
     ret_y : np.array or None, shape (batch_size,)
+    ret_s : np.array or None, shape (batch_size,)
     """
     n_samples = X_.shape[0]
 
@@ -43,10 +47,13 @@ def batcher(X_, y_=None, batch_size=-1):
         ret_y = None
         if y_ is not None:
             ret_y = y_[i:i + batch_size]
-        yield (ret_x, ret_y)
+        ret_s = None
+        if s_ is not None:
+            ret_s = s_[i:i + batch_size]
+        yield (ret_x, ret_y, ret_s)
 
 
-def batch_to_feeddict(X, y, core):
+def batch_to_feeddict(X, y, s, core):
     """Prepare feed dict for session.run() from mini-batch.
     Convert sparse format into tuple (indices, values, shape) for tf.SparseTensor
     Parameters
@@ -56,6 +63,8 @@ def batch_to_feeddict(X, y, core):
         n_features is the number of features.
     y : np.array, shape (batch_size,)
         Target vector relative to X.
+    s : np.array, shape (batch_size,)
+        Weight/Scaling vector relative to X.
     core : TFFMCore
         Core used for extract appropriate placeholders
     Returns
@@ -76,6 +85,8 @@ def batch_to_feeddict(X, y, core):
         fd[core.raw_shape] = np.array(X_sparse.shape).astype(np.int64)
     if y is not None:
         fd[core.train_y] = y.astype(np.float32)
+    if s is not None:
+        fd[core.train_s] = s.astype(np.float32)
     return fd
 
 
@@ -184,7 +195,7 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
     def preprocess_target(self, target):
         """Prepare target values to use."""
 
-    def fit(self, X_, y_, n_epochs=None, show_progress=False):
+    def fit(self, X_, y_, s_=None, n_epochs=None, show_progress=False):
         if self.core.n_features is None:
             self.core.set_num_features(X_.shape[1])
 
@@ -193,6 +204,9 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         if self.core.graph is None:
             self.core.build_graph()
             self.initialize_session()
+
+        if s_ is not None:
+            assert "weighted" in self.core.loss.name, 'Use weighted version of %s by setting parameter use_weights to True' % self.core.loss.name
 
         used_y = self.preprocess_target(y_)
 
@@ -207,10 +221,12 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         for epoch in tqdm(range(n_epochs), unit='epoch', disable=(not show_progress)):
             # generate permutation
             perm = np.random.permutation(X_.shape[0])
+            if s_ is not None:
+                s_ = s_[perm]
             epoch_loss = []
             # iterate over batches
-            for bX, bY in batcher(X_[perm], y_=used_y[perm], batch_size=self.batch_size):
-                fd = batch_to_feeddict(bX, bY, core=self.core)
+            for bX, bY, bS in batcher(X_[perm], y_=used_y[perm], s_=s_, batch_size=self.batch_size):
+                fd = batch_to_feeddict(bX, bY, bS, core=self.core)
                 ops_to_run = [self.core.trainer, self.core.target, self.core.summary_op]
                 result = self.session.run(ops_to_run, feed_dict=fd)
                 _, batch_target_value, summary_str = result
@@ -230,8 +246,8 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         if pred_batch_size is None:
             pred_batch_size = self.batch_size
 
-        for bX, bY in batcher(X, y_=None, batch_size=pred_batch_size):
-            fd = batch_to_feeddict(bX, bY, core=self.core)
+        for bX, bY, bS, in batcher(X, y_=None, s_=None, batch_size=pred_batch_size):
+            fd = batch_to_feeddict(bX, bY, bS, core=self.core)
             output.append(self.session.run(self.core.outputs, feed_dict=fd))
         distances = np.concatenate(output).reshape(-1)
         # WARN: be carefull with this reshape in case of multiclass
