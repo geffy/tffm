@@ -82,12 +82,16 @@ class TFFMRegressor(TFFMBaseModel):
     This class implements L2-regularized arbitrary order FM model with MSE
     loss and gradient-based optimization.
 
+    Custom loss functions are not supported, mean squared error is always
+    used. Any loss function provided in parameters will be overwritten.
+
     See TFFMBaseModel and TFFMCore docs for details about parameters.
     """
 
     def __init__(self, **init_params):
-        if 'loss_function' not in init_params:
-            init_params['loss_function'] = loss_mse
+        # overwrite any custom loss function
+        init_params['loss_function'] = loss_mse
+        init_params['class_weight'] = None
         self.init_basemodel(**init_params)
 
     def preprocess_target(self, y_):
