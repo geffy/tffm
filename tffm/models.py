@@ -25,13 +25,14 @@ class TFFMClassifier(TFFMBaseModel):
     """
 
     def __init__(self, **init_params):
-        assert 'loss_function' not in init_params
-        init_params['loss_function'] = loss_logistic
+        if 'loss_function' not in init_params:
+            init_params['loss_function'] = loss_logistic
         self.init_basemodel(**init_params)
 
     def preprocess_target(self, y_):
         # suppose input {0, 1}, but internally will use {-1, 1} labels instead
-        assert(set(y_) == set([0, 1]))
+        if not (set(y_) == set([0, 1])):
+            raise ValueError("Input labels must be in set {0,1}.")
         return y_ * 2 - 1
 
     def predict(self, X, pred_batch_size=None):
@@ -85,8 +86,8 @@ class TFFMRegressor(TFFMBaseModel):
     """
 
     def __init__(self, **init_params):
-        assert 'loss_function' not in init_params
-        init_params['loss_function'] = loss_mse
+        if 'loss_function' not in init_params:
+            init_params['loss_function'] = loss_mse
         self.init_basemodel(**init_params)
 
     def preprocess_target(self, y_):

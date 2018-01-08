@@ -208,3 +208,46 @@ def loss_logistic(outputs, y):
 def loss_mse(outputs, y):
     return tf.pow(y -  tf.transpose(outputs), 2, name='mse_loss')
 
+def loss_xentropy(outputs, y):
+    # convert from {-1,1} to {0,1}
+    y = (y + 1) / 2
+    # ensure shapes are all compatable
+    y,outputs = [tf.reshape(tensor,(-1,1)) for tensor in [y,outputs]]
+    return tf.nn.sigmoid_cross_entropy_with_logits(labels=y,logits=outputs,
+                                                   name='xentropy_loss')
+
+def loss_xentropy_weighted(outputs, y, pos_weight):
+    """Weighted cross entropy. Do not use directly; use as
+    
+           pos_weight = 1/3
+           def loss_function(outputs, y):
+               return loss_xentropy_weighted(outputs, y, pos_weight)
+
+    Using pos_weight = 1 is equivalent to using unweighted cross-entropy.
+    """
+    # convert from {-1,1} to {0,1}
+    y = (y + 1) / 2
+    # ensure shapes are all compatable
+    y,outputs = [tf.reshape(tensor,(-1,1)) for tensor in [y,outputs]]
+    # why "targets" instead of "labels"? who knows.
+    return tf.nn.weighted_cross_entropy_with_logits(targets=y,logits=outputs,
+               pos_weight=pos_weight, name='weighted_xentropy_loss')
+
+def loss_xentropy_balanced(outputs, y):
+    """Balanced cross-entropy. Positive weight is inverse ratio of positive to
+    negative labels in input.
+    """
+    # convert from {-1,1} to {0,1}
+    y = (y + 1) / 2
+    # automatically set positive weight
+    frac_pos = tf.reduce_mean(y)
+    frac_neg = tf.reduce_mean(1-y)
+    pos_weight = frac_neg/frac_pos
+    # ensure shapes are all compatable
+    y,outputs = [tf.reshape(tensor,(-1,1)) for tensor in [y,outputs]]
+    # why "targets" instead of "labels"? who knows.
+    return tf.nn.weighted_cross_entropy_with_logits(targets=y,logits=outputs,
+               pos_weight=pos_weight, name='balanced_xentropy_loss')
+    
+    
+

@@ -4,8 +4,7 @@ import math
 
 
 class TFFMCore():
-    """
-    This class implements underlying routines about creating computational graph.
+    """This class implements underlying routines about creating computational graph.
 
     Its required `n_features` to be set at graph building time.
 
@@ -29,6 +28,13 @@ class TFFMCore():
         Loss function.
         Take 2 tf.Ops: outputs and targets and should return tf.Op of loss
         See examples: .utils.loss_mse, .utils.loss_logistic
+
+    class_weight : float or "balanced", default: None
+        If provided, then weighted cross-entropy loss will automatically be
+        used. The “balanced” mode uses the provided labels to automatically
+        adjust weights inversely proportional to class frequencies. Otherwise,
+        class_weight is the weight on the positive class in the loss
+        function. If not None, the parameter loss_function is ignored.
 
     optimizer : tf.train.Optimizer, default: AdamOptimizer(learning_rate=0.01)
         Optimization method used for training
@@ -91,15 +97,16 @@ class TFFMCore():
     ----------
     Steffen Rendle, Factorization Machines
         http://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf
+
     """
     def __init__(self, order=2, rank=2, input_type='dense', loss_function=utils.loss_logistic, 
-                optimizer=tf.train.AdamOptimizer(learning_rate=0.01), reg=0, init_std=0.01, 
-                use_diag=False, reweight_reg=False, seed=None):
+                optimizer=tf.train.AdamOptimizer(learning_rate=0.01), reg=0,
+                init_std=0.01, class_weight=None, use_diag=False, reweight_reg=False,
+                seed=None):
         self.order = order
         self.rank = rank
         self.use_diag = use_diag
         self.input_type = input_type
-        self.loss_function = loss_function
         self.optimizer = optimizer
         self.reg = reg
         self.reweight_reg = reweight_reg
@@ -107,6 +114,15 @@ class TFFMCore():
         self.seed = seed
         self.n_features = None
         self.graph = None
+        # loss is weighted cross entropy, if class_weight is given
+        if class_weight is not None:
+            if class_weight is "balanced":
+                loss_function = utils.loss_xentropy_balanced
+            else:
+                def loss_function(outputs,y):
+                    return utils.loss_xentropy_weighted(outputs, y,
+                                                        pos_weight=class_weight)
+        self.loss_function = loss_function        
 
     def set_num_features(self, n_features):
         self.n_features = n_features
