@@ -202,7 +202,7 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         # For reproducible results
         if self.seed:
             np.random.seed(self.seed)
-
+        
         # Training cycle
         for epoch in tqdm(range(n_epochs), unit='epoch', disable=(not show_progress)):
             # generate permutation

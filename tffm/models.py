@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from .core import TFFMCore
 from .base import TFFMBaseModel
-from .utils import loss_logistic, loss_mse, sigmoid
+from .utils import loss_logistic, loss_mse, loss_xentropy, sigmoid
 
 
 
@@ -25,8 +25,16 @@ class TFFMClassifier(TFFMBaseModel):
     """
 
     def __init__(self, **init_params):
+        if 'loss_function' in init_params and 'pos_weight' in init_params:
+            raise ValueError("Only one of loss_function and pos_weight can be given.")
+        # default is loss_logistic
         if 'loss_function' not in init_params:
             init_params['loss_function'] = loss_logistic
+        # use weighted cross entropy if weight is provided
+        if 'pos_weight' in init_params:
+            weighted_xentropy = lambda outputs, y: \
+                                loss_xentropy(outputs,y,init_params['pos_weight'])
+            init_params['loss_function'] = weighted_xentropy
         self.init_basemodel(**init_params)
 
     def preprocess_target(self, y_):
@@ -89,9 +97,9 @@ class TFFMRegressor(TFFMBaseModel):
     """
 
     def __init__(self, **init_params):
-        # overwrite any custom loss function
+        if 'loss_function' in init_params or 'pos_weight' in init_params:
+            raise ValueError("Custom loss functions cannot be used with TFFMRegressor.")
         init_params['loss_function'] = loss_mse
-        init_params['class_weight'] = None
         self.init_basemodel(**init_params)
 
     def preprocess_target(self, y_):
