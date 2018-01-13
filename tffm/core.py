@@ -29,12 +29,6 @@ class TFFMCore():
         Take 2 tf.Ops: outputs and targets and should return tf.Op of loss
         See examples: .utils.loss_mse, .utils.loss_logistic
 
-    pos_weight : float, default: None
-
-        The weight on the positive class in the loss function. If provided, then
-        weighted cross-entropy loss will automatically be used. Cannot be used
-        in conjunction with a custom loss function.
-
     optimizer : tf.train.Optimizer, default: AdamOptimizer(learning_rate=0.01)
         Optimization method used for training
 
@@ -100,7 +94,7 @@ class TFFMCore():
     """
     def __init__(self, order=2, rank=2, input_type='dense', loss_function=None, 
                 optimizer=tf.train.AdamOptimizer(learning_rate=0.01), reg=0,
-                init_std=0.01, pos_weight=None, use_diag=False, reweight_reg=False,
+                init_std=0.01, use_diag=False, reweight_reg=False,
                 seed=None):
         self.order = order
         self.rank = rank
@@ -143,6 +137,7 @@ class TFFMCore():
             # tf.sparse_reorder is not needed since scipy return COO in canonical order
             self.train_x = tf.SparseTensor(self.raw_indices, self.raw_values, self.raw_shape)
         self.train_y = tf.placeholder(tf.float32, shape=[None], name='Y')
+        self.train_w = tf.placeholder(tf.float32, shape=[None], name='sample_weights')
 
     def pow_matmul(self, order, pow):
         if pow not in self.x_pow_cache:
@@ -201,7 +196,7 @@ class TFFMCore():
 
     def init_loss(self):
         with tf.name_scope('loss') as scope:
-            self.loss = self.loss_function(self.outputs, self.train_y)
+            self.loss = self.loss_function(self.outputs, self.train_y) * self.train_w
             self.reduced_loss = tf.reduce_mean(self.loss)
             tf.summary.scalar('loss', self.reduced_loss)
 
