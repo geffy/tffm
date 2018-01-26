@@ -167,7 +167,10 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
     """
 
 
-    def init_basemodel(self, n_epochs=100, batch_size=-1, log_dir=None, session_config=None, verbose=0, seed=None, **core_arguments):
+    def init_basemodel(self, n_epochs=100, batch_size=-1,
+                       log_dir=None,session_config=None,
+                       verbose=0, seed=None,sample_weight=None,
+                       pos_class_weight=None,**core_arguments):
         core_arguments['seed'] = seed
         self.core = TFFMCore(**core_arguments)
         self.batch_size = batch_size
@@ -178,6 +181,8 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
         self.verbose = verbose
         self.steps = 0
         self.seed = seed
+        self.sample_weight = sample_weight
+        self.pos_class_weight = pos_class_weight
 
     def initialize_session(self):
         """Start computational session on builded graph.
@@ -217,7 +222,7 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
             perm = np.random.permutation(X_.shape[0])
             epoch_loss = []
             # iterate over batches
-            for bX, bY, bW in batcher(X_[perm], y_=y_[perm], w_=[perm], batch_size=self.batch_size):
+            for bX, bY, bW in batcher(X_[perm], y_=y_[perm], w_=w_[perm], batch_size=self.batch_size):
                 fd = batch_to_feeddict(bX, bY, bW, core=self.core)
                 ops_to_run = [self.core.trainer, self.core.target, self.core.summary_op]
                 result = self.session.run(ops_to_run, feed_dict=fd)
