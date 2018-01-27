@@ -4,8 +4,7 @@ import math
 
 
 class TFFMCore():
-    """
-    This class implements underlying routines about creating computational graph.
+    """This class implements underlying routines about creating computational graph.
 
     Its required `n_features` to be set at graph building time.
 
@@ -91,15 +90,16 @@ class TFFMCore():
     ----------
     Steffen Rendle, Factorization Machines
         http://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf
+
     """
-    def __init__(self, order=2, rank=2, input_type='dense', loss_function=utils.loss_logistic, 
-                optimizer=tf.train.AdamOptimizer(learning_rate=0.01), reg=0, init_std=0.01, 
-                use_diag=False, reweight_reg=False, seed=None):
+    def __init__(self, order=2, rank=2, input_type='dense', loss_function=None, 
+                optimizer=tf.train.AdamOptimizer(learning_rate=0.01), reg=0,
+                init_std=0.01, use_diag=False, reweight_reg=False,
+                seed=None):
         self.order = order
         self.rank = rank
         self.use_diag = use_diag
         self.input_type = input_type
-        self.loss_function = loss_function
         self.optimizer = optimizer
         self.reg = reg
         self.reweight_reg = reweight_reg
@@ -107,6 +107,8 @@ class TFFMCore():
         self.seed = seed
         self.n_features = None
         self.graph = None
+        self.loss_function = loss_function
+
 
     def set_num_features(self, n_features):
         self.n_features = n_features
@@ -135,6 +137,7 @@ class TFFMCore():
             # tf.sparse_reorder is not needed since scipy return COO in canonical order
             self.train_x = tf.SparseTensor(self.raw_indices, self.raw_values, self.raw_shape)
         self.train_y = tf.placeholder(tf.float32, shape=[None], name='Y')
+        self.train_w = tf.placeholder(tf.float32, shape=[None], name='sample_weights')
 
     def pow_matmul(self, order, pow):
         if pow not in self.x_pow_cache:
@@ -193,7 +196,7 @@ class TFFMCore():
 
     def init_loss(self):
         with tf.name_scope('loss') as scope:
-            self.loss = self.loss_function(self.outputs, self.train_y)
+            self.loss = self.loss_function(self.outputs, self.train_y) * self.train_w
             self.reduced_loss = tf.reduce_mean(self.loss)
             tf.summary.scalar('loss', self.reduced_loss)
 

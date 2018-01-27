@@ -1,12 +1,12 @@
 """Supporting functions for arbitrary order Factorization Machines."""
 
-
-import itertools
-from itertools import combinations_with_replacement, takewhile, count
 import math
-from collections import defaultdict
 import numpy as np
 import tensorflow as tf
+import itertools
+from itertools import combinations_with_replacement, takewhile, count
+from collections import defaultdict
+
 
 def get_shorter_decompositions(basic_decomposition):
     """Returns all arrays simpler than basic_decomposition.
@@ -38,7 +38,6 @@ def get_shorter_decompositions(basic_decomposition):
     variations = defaultdict(lambda: [])
     for curr_len in range(1, len(basic_decomposition)):
         for sum_rule in combinations_with_replacement(range(curr_len), order):
-            i = 0
             sum_rule = np.array(sum_rule)
             curr_pows = np.array([np.sum(sum_rule == i) for i in range(curr_len)])
             curr_pows = curr_pows[curr_pows != 0]
@@ -197,8 +196,8 @@ def sigmoid(x):
 
 
 # Predefined loss functions
-# Should take 2 tf.Ops: outputs and targets and should return tf.Op of loss
-# Be carefull about dimentionality -- maybe tf.transpose(outputs) is needed
+# Should take 2 tf.Ops: outputs, targets and should return tf.Op of element-wise losses
+# Be careful about dimensionality -- maybe tf.transpose(outputs) is needed
 
 def loss_logistic(outputs, y):
     margins = -y * tf.transpose(outputs)
@@ -207,4 +206,5 @@ def loss_logistic(outputs, y):
 
 def loss_mse(outputs, y):
     return tf.pow(y -  tf.transpose(outputs), 2, name='mse_loss')
+    
 
