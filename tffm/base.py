@@ -1,5 +1,6 @@
 import tensorflow as tf
 from .core import TFFMCore
+import sklearn
 from sklearn.base import BaseEstimator
 from abc import ABCMeta, abstractmethod
 import six
