@@ -3,7 +3,7 @@
 import numpy as np
 from .base import TFFMBaseModel
 from .utils import loss_logistic, loss_mse,  sigmoid
-
+import copy
 
 
 class TFFMClassifier(TFFMBaseModel):
@@ -24,6 +24,7 @@ class TFFMClassifier(TFFMBaseModel):
         base class TFFMBaseModel."""
 
         init_params['loss_function'] = loss_logistic
+        self._init_params_copy = copy.deepcopy(init_params)
         self.init_basemodel(**init_params)
 
     def _preprocess_sample_weights(self, sample_weight, pos_class_weight, used_y):
@@ -118,6 +119,7 @@ class TFFMRegressor(TFFMBaseModel):
         not supported for TFFMRegressor. For custom loss function, extend the
         base class TFFMBaseModel."""
         
+        self._init_params_copy = copy.deepcopy(init_params)
         init_params['loss_function'] = loss_mse
         self.init_basemodel(**init_params)
 
