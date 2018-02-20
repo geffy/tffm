@@ -289,6 +289,9 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
             'init': self._init_params_copy,
             'core': {k:getattr(self.core, k) for k in CORE_ATTRS}
         }
+        if not os.path.isdir(os.path.dirname(path)):
+            os.makedirs(path, exist_ok=True)
+
         pickle.dump(pickle_params, open(path+'.tffm', 'wb'))
 
     @staticmethod
