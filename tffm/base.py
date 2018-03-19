@@ -282,9 +282,14 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
 
     def save_model(self, path):
         """Saves the entire model"""
+        self.save_state(path)
+
         ## Additional core attributes that are to be pickled!
         CORE_ATTRS = ['n_features']
-        self.save_state(path)
+
+        # remove loss_function if classifier
+        if self.__class__.__name__.rpartition('.')[2] == 'TFFMClassifier':
+            del self._init_params_copy['loss_function']
         pickle_params ={
             'init': self._init_params_copy,
             'core': {k:getattr(self.core, k) for k in CORE_ATTRS}
@@ -305,7 +310,7 @@ class TFFMBaseModel(six.with_metaclass(ABCMeta, BaseEstimator)):
             path: path to save pickled model file with extension .tffm
         """
         if klass.__name__.rpartition('.')[2] not in ['TFFMRegressor', 'TFFMClassifier']:
-            raise Exception('klass is not supported: %s'%klass)
+            raise TypeError('klass is not supported: %s'%klass)
         _unpickled_obj = pickle.load(open(path+'.tffm', 'rb'))
         _new_model = klass(**_unpickled_obj['init'])
         for k in _unpickled_obj['core']:
