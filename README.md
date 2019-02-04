@@ -10,7 +10,7 @@ The inference time is linear with respect to the number of features.
 
 Tested on Python3.5, but should work on Python2.7
 
-This implementation is quite similar to the one described in Blondel's et al. paper [https://arxiv.org/abs/1607.07195], but was developed independently and prior to the first appearence of the paper.
+This implementation is quite similar to the one described in Blondel's et al. paper [https://arxiv.org/abs/1607.07195], but was developed independently and prior to the first appearance of the paper.
 
 # Dependencies
 * [scikit-learn](http://scikit-learn.org/stable/)
