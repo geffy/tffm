@@ -29,7 +29,7 @@ class TFFMCore():
         Take 2 tf.Ops: outputs and targets and should return tf.Op of loss
         See examples: .utils.loss_mse, .utils.loss_logistic
 
-    optimizer : tf.train.Optimizer, default: AdamOptimizer(learning_rate=0.01)
+    optimizer : tf.train.Optimizer, default: Adam(learning_rate=0.01)
         Optimization method used for training
 
     reg : float, default: 0
@@ -93,7 +93,7 @@ class TFFMCore():
 
     """
     def __init__(self, order=2, rank=2, input_type='dense', loss_function=None, 
-                optimizer=tf.train.AdamOptimizer(learning_rate=0.01), reg=0,
+                optimizer=tf.train.Adam(learning_rate=0.01), reg=0,
                 init_std=0.01, use_diag=False, reweight_reg=False,
                 seed=None):
         self.order = order
