@@ -11,11 +11,11 @@ def read(fname):
 def main():
     setup(
         name='tffm',
-        version='1.0.1',
+        version='1.0.2',
         author="Mikhail Trofimov",
         author_email="mikhail.trofimov@phystech.edu",
         url='https://github.com/geffy/tffm',
-        download_url='https://github.com/geffy/tffm/archive/1.0.1.tar.gz',
+        download_url='https://github.com/geffy/tffm/archive/1.0.2.tar.gz',
         description=('TensforFlow implementation of arbitrary order '
                      'Factorization Machine'),
         classifiers=[
